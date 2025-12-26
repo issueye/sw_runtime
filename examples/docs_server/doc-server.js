@@ -26,58 +26,61 @@ app.use((req, res, next) => {
 });
 
 // 根路径
-app.get('/', (req, res) => {
-    res.redirect('/index.html');
-});
+// app.get('/', (req, res) => {
+//     res.redirect('/index.html');
+// });
 
 // 主文档页面
-app.get('/index.html', (req, res) => {
-    try {
-        const filePath = path.join(__dirname, 'index.html');
-        console.log('filePath', filePath);
-        if (fs.existsSync(filePath)) {
-            const content = fs.readFileSync(filePath, 'utf8');
-            res.header('Content-Type', 'text/html; charset=utf-8');
-            res.send(content);
-        } else {
-            res.html(getDefaultIndexHtml());
-        }
-    } catch (error) {
-        res.html(getDefaultIndexHtml());
-    }
-});
+// app.get('/index.html', (req, res) => {
+//     try {
+//         const filePath = path.join(__dirname, 'index.html');
+//         console.log('filePath', filePath);
+//         if (fs.existsSync(filePath)) {
+//             const content = fs.readFileSync(filePath, 'utf8');
+//             res.header('Content-Type', 'text/html; charset=utf-8');
+//             res.send(content);
+//         } else {
+//             res.html(getDefaultIndexHtml());
+//         }
+//     } catch (error) {
+//         res.html(getDefaultIndexHtml());
+//     }
+// });
+
+// 静态文件服务
+app.static('./docs/', '/docs/');
 
 // CSS 文件
-app.get('/assets/css/styles.css', (req, res) => {
-    try {
-        const filePath = path.join(__dirname, 'assets', 'css', 'styles.css');
-        if (fs.existsSync(filePath)) {
-            const content = fs.readFileSync(filePath, 'utf8');
-            res.header('Content-Type', 'text/css; charset=utf-8');
-            res.send(content);
-        } else {
-            res.status(404).send('CSS file not found');
-        }
-    } catch (error) {
-        res.status(500).send('Error reading CSS file');
-    }
-});
+// app.get('/assets/css/styles.css', (req, res) => {
+//     try {
+//         const filePath = path.join(__dirname, 'assets', 'css', 'styles.css');
+//         if (fs.existsSync(filePath)) {
+//             const content = fs.readFileSync(filePath, 'utf8');
+//             res.header('Content-Type', 'text/css; charset=utf-8');
+//             res.send(content);
+//         } else {
+//             res.status(404).send('CSS file not found');
+//         }
+//     } catch (error) {
+//         res.status(500).send('Error reading CSS file');
+//     }
+// });
 
 // JavaScript 文件
-app.get('/assets/js/app.js', (req, res) => {
-    try {
-        const filePath = path.join(__dirname, 'assets', 'js', 'app.js');
-        if (fs.existsSync(filePath)) {
-            const content = fs.readFileSync(filePath, 'utf8');
-            res.header('Content-Type', 'application/javascript; charset=utf-8');
-            res.send(content);
-        } else {
-            res.status(404).send('JS file not found');
-        }
-    } catch (error) {
-        res.status(500).send('Error reading JS file');
-    }
-});
+// app.get('/assets/js/app.js', (req, res) => {
+//     try {
+//         const filePath = path.join(__dirname, 'assets', 'js', 'app.js');
+//         if (fs.existsSync(filePath)) {
+//             const content = fs.readFileSync(filePath, 'utf8');
+//             res.header('Content-Type', 'application/javascript; charset=utf-8');
+//             res.send(content);
+//         } else {
+//             res.status(404).send('JS file not found');
+//         }
+//     } catch (error) {
+//         res.status(500).send('Error reading JS file');
+//     }
+// });
 
 // 模块文件 - 为每个模块创建单独的路由
 const moduleNames = ['overview', 'modules', 'crypto', 'compression', 'fs', 'http', 'httpserver', 'redis', 'sqlite', 'path', 'exec', 'examples'];

@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"context"
 	"os"
 	"os/signal"
 	"sw_runtime/internal/builtins"
@@ -16,49 +17,79 @@ import (
 // SimpleEventLoop 简化的事件循环实现
 type SimpleEventLoop struct {
 	vm           *goja.Runtime
-	timers       map[int]*time.Timer
-	intervals    map[int]*time.Ticker
-	timerID      int
-	mu           sync.Mutex
-	running      bool
-	activeJobs   int32         // 活跃的异步任务计数
-	stopChan     chan struct{} // 停止信号通道
-	hasLongLived bool          // 是否有长期运行的任务（如 HTTP 服务器）
+	timers       map[int]*timerEntry    // 定时器条目
+	intervals    map[int]*intervalEntry // 间隔定时器条目
+	timerID      atomic.Int64           // 原子计数器,避免锁竞争
+	mu           sync.RWMutex           // 读写锁,提升并发性能
+	running      atomic.Bool            // 原子布尔值,避免锁
+	activeJobs   atomic.Int32           // 活跃的异步任务计数
+	stopChan     chan struct{}          // 停止信号通道
+	hasLongLived atomic.Bool            // 是否有长期运行的任务(如 HTTP 服务器)
+	ctx          context.Context        // 上下文控制
+	cancel       context.CancelFunc     // 取消函数
+}
+
+// timerEntry 定时器条目
+type timerEntry struct {
+	timer    *time.Timer
+	canceled atomic.Bool // 是否已取消
+}
+
+// intervalEntry 间隔定时器条目
+type intervalEntry struct {
+	ticker   *time.Ticker
+	ctx      context.Context
+	cancel   context.CancelFunc
+	canceled atomic.Bool // 是否已取消
 }
 
 // NewSimpleEventLoop 创建简化的事件循环
 func NewSimpleEventLoop(vm *goja.Runtime) *SimpleEventLoop {
-	return &SimpleEventLoop{
+	ctx, cancel := context.WithCancel(context.Background())
+	el := &SimpleEventLoop{
 		vm:        vm,
-		timers:    make(map[int]*time.Timer),
-		intervals: make(map[int]*time.Ticker),
-		stopChan:  make(chan struct{}),
+		timers:    make(map[int]*timerEntry, 16),    // 预分配容量
+		intervals: make(map[int]*intervalEntry, 16), // 预分配容量
+		stopChan:  make(chan struct{}, 1),           // 带缓冲,避免阻塞
+		ctx:       ctx,
+		cancel:    cancel,
 	}
+	return el
 }
 
 // Start 启动事件循环
 func (el *SimpleEventLoop) Start() {
-	el.running = true
+	el.running.Store(true)
 }
 
 // Stop 停止事件循环
 func (el *SimpleEventLoop) Stop() {
-	el.mu.Lock()
-	defer el.mu.Unlock()
-
-	for id, timer := range el.timers {
-		timer.Stop()
-		delete(el.timers, id)
+	if !el.running.CompareAndSwap(true, false) {
+		return // 已经停止
 	}
 
-	for id, ticker := range el.intervals {
-		ticker.Stop()
+	// 取消上下文,通知所有goroutine退出
+	el.cancel()
+
+	el.mu.Lock()
+	// 停止所有定时器
+	for id, entry := range el.timers {
+		entry.canceled.Store(true)
+		entry.timer.Stop()
+		delete(el.timers, id)
+		pool.GlobalMemoryMonitor.DecrementTimerCount()
+	}
+
+	// 停止所有间隔定时器
+	for id, entry := range el.intervals {
+		entry.canceled.Store(true)
+		entry.cancel()
+		entry.ticker.Stop()
 		delete(el.intervals, id)
 	}
+	el.mu.Unlock()
 
-	el.running = false
-
-	// 发送停止信号
+	// 发送停止信号(非阻塞)
 	select {
 	case el.stopChan <- struct{}{}:
 	default:
@@ -67,17 +98,17 @@ func (el *SimpleEventLoop) Stop() {
 
 // AddJob 增加活跃任务计数
 func (el *SimpleEventLoop) AddJob() {
-	atomic.AddInt32(&el.activeJobs, 1)
+	el.activeJobs.Add(1)
 }
 
 // DoneJob 减少活跃任务计数
 func (el *SimpleEventLoop) DoneJob() {
-	atomic.AddInt32(&el.activeJobs, -1)
+	el.activeJobs.Add(-1)
 }
 
 // SetLongLived 标记有长期运行的任务
 func (el *SimpleEventLoop) SetLongLived() {
-	el.hasLongLived = true
+	el.hasLongLived.Store(true)
 }
 
 // WaitAndProcess 等待并处理所有任务
@@ -85,55 +116,58 @@ func (el *SimpleEventLoop) WaitAndProcess() {
 	// 设置信号处理
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+	defer signal.Stop(sigChan)
 
 	// 给异步任务一些启动时间
 	time.Sleep(50 * time.Millisecond)
 
-	for el.running {
+	// 使用 ticker 代替频繁的 time.Sleep
+	ticker := time.NewTicker(10 * time.Millisecond)
+	defer ticker.Stop()
+
+	// 空闲检测计数器
+	idleCount := 0
+	const maxIdleChecks = 5 // 50ms 检查周期 * 5 = 250ms 无任务后退出
+
+	for el.running.Load() {
 		select {
 		case <-sigChan:
-			// 收到终止信号，优雅退出
+			// 收到终止信号,优雅退出
 			el.Stop()
 			return
 		case <-el.stopChan:
 			// 收到停止信号
 			return
-		default:
-			el.mu.Lock()
+		case <-el.ctx.Done():
+			// 上下文取消
+			return
+		case <-ticker.C:
+			// 使用读锁提升性能
+			el.mu.RLock()
 			hasTimers := len(el.timers) > 0
 			hasIntervals := len(el.intervals) > 0
-			el.mu.Unlock()
+			el.mu.RUnlock()
 
-			activeJobs := atomic.LoadInt32(&el.activeJobs)
-
-			// 检查是否有 HTTP 服务器在运行
+			activeJobs := el.activeJobs.Load()
 			hasHTTPServer := builtins.IsHTTPServerRunning()
+			isLongLived := el.hasLongLived.Load()
 
-			// 如果有长期运行的任务（如 HTTP 服务器），持续运行
-			if el.hasLongLived || hasHTTPServer {
-				time.Sleep(100 * time.Millisecond)
+			// 如果有长期运行的任务(如 HTTP 服务器),持续运行
+			if isLongLived || hasHTTPServer {
+				idleCount = 0
 				continue
 			}
 
-			// 如果有活跃的定时器、间隔器或异步任务，继续等待
+			// 如果有活跃的定时器、间隔器或异步任务,继续等待
 			if hasTimers || hasIntervals || activeJobs > 0 {
-				time.Sleep(10 * time.Millisecond)
+				idleCount = 0
 				continue
 			}
 
-			// 没有任何活跃任务，再等待一小段时间确认
-			time.Sleep(50 * time.Millisecond)
-
-			// 再次检查
-			el.mu.Lock()
-			hasTimers = len(el.timers) > 0
-			hasIntervals = len(el.intervals) > 0
-			el.mu.Unlock()
-			activeJobs = atomic.LoadInt32(&el.activeJobs)
-			hasHTTPServer = builtins.IsHTTPServerRunning()
-
-			if !hasTimers && !hasIntervals && activeJobs == 0 && !el.hasLongLived && !hasHTTPServer {
-				// 确实没有任务了，退出
+			// 没有任何活跃任务,增加空闲计数
+			idleCount++
+			if idleCount >= maxIdleChecks {
+				// 确实没有任务了,退出
 				return
 			}
 		}
@@ -155,30 +189,38 @@ func (el *SimpleEventLoop) SetTimeout(call goja.FunctionCall) goja.Value {
 	if len(call.Arguments) >= 2 {
 		delay = call.Arguments[1].ToInteger()
 	}
+	if delay < 0 {
+		delay = 0
+	}
 
-	el.mu.Lock()
-	el.timerID++
-	id := el.timerID
-	el.mu.Unlock()
+	// 使用原子操作生成ID,避免锁
+	id := int(el.timerID.Add(1))
 
-	timer := time.AfterFunc(time.Duration(delay)*time.Millisecond, func() {
+	entry := &timerEntry{}
+	entry.timer = time.AfterFunc(time.Duration(delay)*time.Millisecond, func() {
+		// 检查是否已取消
+		if entry.canceled.Load() {
+			return
+		}
+
 		// 使用 defer 和 recover 来处理可能的 panic
 		defer func() {
 			if r := recover(); r != nil {
-				// 忽略 panic，避免影响其他操作
+				// 记录错误但不影响其他操作
 			}
-			// 减少定时器计数
+			// 清理定时器
+			el.mu.Lock()
+			delete(el.timers, id)
+			el.mu.Unlock()
 			pool.GlobalMemoryMonitor.DecrementTimerCount()
 		}()
 
+		// 执行回调
 		fn(goja.Undefined())
-		el.mu.Lock()
-		delete(el.timers, id)
-		el.mu.Unlock()
 	})
 
 	el.mu.Lock()
-	el.timers[id] = timer
+	el.timers[id] = entry
 	el.mu.Unlock()
 
 	// 增加定时器计数
@@ -196,13 +238,16 @@ func (el *SimpleEventLoop) ClearTimeout(call goja.FunctionCall) goja.Value {
 	id := int(call.Arguments[0].ToInteger())
 
 	el.mu.Lock()
-	defer el.mu.Unlock()
-
-	if timer, ok := el.timers[id]; ok {
-		timer.Stop()
+	entry, ok := el.timers[id]
+	if ok {
+		entry.canceled.Store(true)
+		entry.timer.Stop()
 		delete(el.timers, id)
+		el.mu.Unlock()
 		// 减少定时器计数
 		pool.GlobalMemoryMonitor.DecrementTimerCount()
+	} else {
+		el.mu.Unlock()
 	}
 
 	return goja.Undefined()
@@ -227,44 +272,51 @@ func (el *SimpleEventLoop) SetInterval(call goja.FunctionCall) goja.Value {
 		interval = 1
 	}
 
+	// 使用原子操作生成ID
+	id := int(el.timerID.Add(1))
+
+	// 创建间隔定时器条目
+	ctx, cancel := context.WithCancel(el.ctx)
+	entry := &intervalEntry{
+		ticker: time.NewTicker(time.Duration(interval) * time.Millisecond),
+		ctx:    ctx,
+		cancel: cancel,
+	}
+
 	el.mu.Lock()
-	el.timerID++
-	id := el.timerID
+	el.intervals[id] = entry
 	el.mu.Unlock()
 
-	ticker := time.NewTicker(time.Duration(interval) * time.Millisecond)
-
-	el.mu.Lock()
-	el.intervals[id] = ticker
-	el.mu.Unlock()
-
+	// 启动间隔执行的 goroutine
 	go func() {
 		defer func() {
-			ticker.Stop()
+			entry.ticker.Stop()
 			el.mu.Lock()
 			delete(el.intervals, id)
 			el.mu.Unlock()
 		}()
 
-		for range ticker.C {
-			el.mu.Lock()
-			_, exists := el.intervals[id]
-			el.mu.Unlock()
-
-			if !exists {
+		for {
+			select {
+			case <-entry.ctx.Done():
+				// 上下文取消,退出
 				return
-			}
+			case <-entry.ticker.C:
+				// 检查是否已取消
+				if entry.canceled.Load() {
+					return
+				}
 
-			// 直接调用函数，避免复杂的队列机制
-			// 使用 defer 和 recover 来处理可能的 panic
-			func() {
-				defer func() {
-					if r := recover(); r != nil {
-						// 忽略 panic，避免影响其他操作
-					}
+				// 执行回调,捕获 panic
+				func() {
+					defer func() {
+						if r := recover(); r != nil {
+							// 记录错误但继续运行
+						}
+					}()
+					fn(goja.Undefined())
 				}()
-				fn(goja.Undefined())
-			}()
+			}
 		}
 	}()
 
@@ -280,12 +332,14 @@ func (el *SimpleEventLoop) ClearInterval(call goja.FunctionCall) goja.Value {
 	id := int(call.Arguments[0].ToInteger())
 
 	el.mu.Lock()
-	defer el.mu.Unlock()
-
-	if ticker, ok := el.intervals[id]; ok {
-		ticker.Stop()
+	entry, ok := el.intervals[id]
+	if ok {
+		entry.canceled.Store(true)
+		entry.cancel() // 取消上下文,通知 goroutine 退出
+		entry.ticker.Stop()
 		delete(el.intervals, id)
 	}
+	el.mu.Unlock()
 
 	return goja.Undefined()
 }

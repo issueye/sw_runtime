@@ -136,6 +136,7 @@ client.get('https://api.example.com/data')
 - **中间件支持**: Express 风格的中间件链
 - **请求处理**: 自动解析请求体、查询参数、请求头
 - **响应方法**: JSON、HTML、文本、重定向等响应类型
+- **文件服务**: sendFile、download 方法,自动 MIME 类型检测
 - **静态文件**: 内置静态文件服务器
 - **Promise 支持**: 异步启动和关闭
 
@@ -172,6 +173,15 @@ app.post('/api/users', (req, res) => {
     message: 'User created',
     user: user
   });
+});
+
+// 文件服务
+app.get('/file', (req, res) => {
+  res.sendFile('./path/to/file.html'); // 自动检测 MIME 类型
+});
+
+app.get('/download', (req, res) => {
+  res.download('./file.pdf', 'custom-name.pdf'); // 下载文件
 });
 
 // 静态文件服务

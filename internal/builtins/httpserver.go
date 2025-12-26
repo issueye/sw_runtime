@@ -5,7 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"mime"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -518,6 +521,32 @@ func (h *HTTPServerModule) createResponseObjectWithWrapper(rw *responseWriter, r
 		return obj
 	})
 
+	// 发送文件
+	obj.Set("sendFile", func(call goja.FunctionCall) goja.Value {
+		if len(call.Arguments) > 0 {
+			filePath := call.Arguments[0].String()
+			h.sendFileResponse(w, rw, filePath)
+		}
+		return obj
+	})
+
+	// 下载文件
+	obj.Set("download", func(call goja.FunctionCall) goja.Value {
+		if len(call.Arguments) > 0 {
+			filePath := call.Arguments[0].String()
+			filename := filepath.Base(filePath)
+
+			// 可选的自定义文件名
+			if len(call.Arguments) > 1 {
+				filename = call.Arguments[1].String()
+			}
+
+			w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, filename))
+			h.sendFileResponse(w, rw, filePath)
+		}
+		return obj
+	})
+
 	// 重定向
 	obj.Set("redirect", func(call goja.FunctionCall) goja.Value {
 		if len(call.Arguments) > 0 {
@@ -535,4 +564,69 @@ func (h *HTTPServerModule) createResponseObjectWithWrapper(rw *responseWriter, r
 	})
 
 	return obj
+}
+
+// sendFileResponse 发送文件响应
+func (h *HTTPServerModule) sendFileResponse(w http.ResponseWriter, rw *responseWriter, filePath string) {
+	// 检查文件是否存在
+	fileInfo, err := os.Stat(filePath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			w.WriteHeader(http.StatusNotFound)
+			w.Write([]byte("File not found"))
+		} else {
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte("Error accessing file"))
+		}
+		rw.written = true
+		return
+	}
+
+	// 检查是否为目录
+	if fileInfo.IsDir() {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("Cannot send directory"))
+		rw.written = true
+		return
+	}
+
+	// 读取文件内容
+	content, err := os.ReadFile(filePath)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte("Error reading file"))
+		rw.written = true
+		return
+	}
+
+	// 检测 MIME 类型
+	contentType := h.detectContentType(filePath, content)
+	w.Header().Set("Content-Type", contentType)
+
+	// 设置缓存控制头
+	w.Header().Set("Last-Modified", fileInfo.ModTime().UTC().Format(http.TimeFormat))
+	w.Header().Set("Cache-Control", "public, max-age=3600")
+
+	// 发送文件内容
+	w.WriteHeader(rw.statusCode)
+	w.Write(content)
+	rw.written = true
+}
+
+// detectContentType 检测文件的 MIME 类型
+func (h *HTTPServerModule) detectContentType(filePath string, content []byte) string {
+	// 首先根据文件扩展名判断
+	ext := filepath.Ext(filePath)
+	if ext != "" {
+		if mimeType := mime.TypeByExtension(ext); mimeType != "" {
+			return mimeType
+		}
+	}
+
+	// 如果无法从扩展名判断,使用内容检测
+	if len(content) > 0 {
+		return http.DetectContentType(content)
+	}
+
+	return "application/octet-stream"
 }
