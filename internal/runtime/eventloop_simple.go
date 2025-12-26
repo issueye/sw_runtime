@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"sw_runtime/internal/pool"
 	"sync"
 	"time"
 
@@ -64,6 +65,8 @@ func (el *SimpleEventLoop) SetTimeout(call goja.FunctionCall) goja.Value {
 			if r := recover(); r != nil {
 				// 忽略 panic，避免影响其他操作
 			}
+			// 减少定时器计数
+			pool.GlobalMemoryMonitor.DecrementTimerCount()
 		}()
 
 		fn(goja.Undefined())
@@ -75,6 +78,9 @@ func (el *SimpleEventLoop) SetTimeout(call goja.FunctionCall) goja.Value {
 	el.mu.Lock()
 	el.timers[id] = timer
 	el.mu.Unlock()
+
+	// 增加定时器计数
+	pool.GlobalMemoryMonitor.IncrementTimerCount()
 
 	return el.vm.ToValue(id)
 }
@@ -93,6 +99,8 @@ func (el *SimpleEventLoop) ClearTimeout(call goja.FunctionCall) goja.Value {
 	if timer, ok := el.timers[id]; ok {
 		timer.Stop()
 		delete(el.timers, id)
+		// 减少定时器计数
+		pool.GlobalMemoryMonitor.DecrementTimerCount()
 	}
 
 	return goja.Undefined()

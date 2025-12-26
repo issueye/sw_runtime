@@ -6,6 +6,7 @@ import (
 	"compress/zlib"
 	"encoding/base64"
 	"io"
+	"sw_runtime/internal/pool"
 
 	"github.com/dop251/goja"
 )
@@ -47,8 +48,11 @@ func (c *CompressionModule) gzipCompress(call goja.FunctionCall) goja.Value {
 
 	data := call.Arguments[0].String()
 
-	var buf bytes.Buffer
-	writer := gzip.NewWriter(&buf)
+	// 使用对象池获取缓冲区
+	buf := pool.GlobalManager.GetByteBuffer()
+	defer pool.GlobalManager.PutByteBuffer(buf)
+
+	writer := gzip.NewWriter(buf)
 
 	_, err := writer.Write([]byte(data))
 	if err != nil {
@@ -73,8 +77,13 @@ func (c *CompressionModule) gzipDecompress(call goja.FunctionCall) goja.Value {
 
 	data := call.Arguments[0].String()
 
+	// 使用对象池获取字节切片
+	compressed := pool.GlobalManager.GetByteSlice()
+	defer pool.GlobalManager.PutByteSlice(compressed)
+
 	// 解码 base64
-	compressed, err := base64.StdEncoding.DecodeString(data)
+	var err error
+	compressed, err = base64.StdEncoding.AppendDecode(compressed, []byte(data))
 	if err != nil {
 		panic(c.vm.NewGoError(err))
 	}
@@ -85,9 +94,23 @@ func (c *CompressionModule) gzipDecompress(call goja.FunctionCall) goja.Value {
 	}
 	defer reader.Close()
 
-	decompressed, err := io.ReadAll(reader)
-	if err != nil {
-		panic(c.vm.NewGoError(err))
+	// 使用对象池获取解压缓冲区
+	decompressed := pool.GlobalManager.GetByteSlice()
+	defer pool.GlobalManager.PutByteSlice(decompressed)
+
+	// 读取解压数据
+	buf := make([]byte, 4096)
+	for {
+		n, err := reader.Read(buf)
+		if n > 0 {
+			decompressed = append(decompressed, buf[:n]...)
+		}
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			panic(c.vm.NewGoError(err))
+		}
 	}
 
 	return c.vm.ToValue(string(decompressed))
@@ -101,8 +124,11 @@ func (c *CompressionModule) zlibCompress(call goja.FunctionCall) goja.Value {
 
 	data := call.Arguments[0].String()
 
-	var buf bytes.Buffer
-	writer := zlib.NewWriter(&buf)
+	// 使用对象池获取缓冲区
+	buf := pool.GlobalManager.GetByteBuffer()
+	defer pool.GlobalManager.PutByteBuffer(buf)
+
+	writer := zlib.NewWriter(buf)
 
 	_, err := writer.Write([]byte(data))
 	if err != nil {
@@ -127,8 +153,13 @@ func (c *CompressionModule) zlibDecompress(call goja.FunctionCall) goja.Value {
 
 	data := call.Arguments[0].String()
 
+	// 使用对象池获取字节切片
+	compressed := pool.GlobalManager.GetByteSlice()
+	defer pool.GlobalManager.PutByteSlice(compressed)
+
 	// 解码 base64
-	compressed, err := base64.StdEncoding.DecodeString(data)
+	var err error
+	compressed, err = base64.StdEncoding.AppendDecode(compressed, []byte(data))
 	if err != nil {
 		panic(c.vm.NewGoError(err))
 	}
@@ -139,9 +170,23 @@ func (c *CompressionModule) zlibDecompress(call goja.FunctionCall) goja.Value {
 	}
 	defer reader.Close()
 
-	decompressed, err := io.ReadAll(reader)
-	if err != nil {
-		panic(c.vm.NewGoError(err))
+	// 使用对象池获取解压缓冲区
+	decompressed := pool.GlobalManager.GetByteSlice()
+	defer pool.GlobalManager.PutByteSlice(decompressed)
+
+	// 读取解压数据
+	buf := make([]byte, 4096)
+	for {
+		n, err := reader.Read(buf)
+		if n > 0 {
+			decompressed = append(decompressed, buf[:n]...)
+		}
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			panic(c.vm.NewGoError(err))
+		}
 	}
 
 	return c.vm.ToValue(string(decompressed))

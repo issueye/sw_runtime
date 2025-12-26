@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 
 	"sw_runtime/internal/modules"
+	"sw_runtime/internal/pool"
 
 	"github.com/dop251/goja"
 )
@@ -28,8 +29,16 @@ func New() *Runner {
 	basePath, _ := os.Getwd()
 	moduleSystem := modules.NewSystem(vm, basePath)
 
-	r := &Runner{vm: vm, loop: loop, modules: moduleSystem}
+	r := &Runner{
+		vm:      vm,
+		loop:    loop,
+		modules: moduleSystem,
+	}
 	r.setupBuiltins()
+
+	// 增加 Runner 计数
+	pool.GlobalMemoryMonitor.IncrementRunnerCount()
+
 	return r
 }
 
@@ -185,4 +194,21 @@ func (r *Runner) GetLoadedModules() []string {
 // GetBuiltinModules 获取内置模块列表
 func (r *Runner) GetBuiltinModules() []string {
 	return r.modules.GetBuiltinModules()
+}
+
+// Close 关闭运行器并清理资源
+func (r *Runner) Close() {
+	// 停止事件循环
+	r.loop.Stop()
+
+	// 清除模块缓存
+	r.modules.ClearCache()
+
+	// 减少 Runner 计数
+	pool.GlobalMemoryMonitor.DecrementRunnerCount()
+}
+
+// GetMemoryStats 获取内存统计信息
+func (r *Runner) GetMemoryStats() pool.MemoryStats {
+	return pool.GlobalMemoryMonitor.GetStats()
 }
