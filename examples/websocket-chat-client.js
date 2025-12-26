@@ -6,7 +6,7 @@ const ws = require('websocket');
 const clientName = 'Client-' + Math.floor(Math.random() * 1000);
 console.log(`${clientName} 正在连接到聊天服务器...`);
 
-ws.connect('ws://localhost:8080/chat').then(client => {
+ws.connect('ws://localhost:3200/chat').then(client => {
     console.log(`✅ ${clientName} 已连接到聊天室`);
 
     // 监听消息
