@@ -20,7 +20,7 @@ console.log('   MY_TEST_VAR:', exec.getEnv('MY_TEST_VAR'));
 
 // 3. 检查命令是否存在
 console.log('\n3. 命令检查:');
-const commands = ['node', 'go', 'python', 'git', 'curl'];
+const commands = ['node', 'go', 'python', 'git', 'curl', 'rust'];
 commands.forEach(cmd => {
     const exists = exec.commandExists(cmd);
     const path = exec.which(cmd);
