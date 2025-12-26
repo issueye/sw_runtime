@@ -80,7 +80,7 @@ app.get('/assets/js/app.js', (req, res) => {
 });
 
 // 模块文件 - 为每个模块创建单独的路由
-const moduleNames = ['overview', 'modules', 'crypto', 'compression', 'fs', 'http', 'httpserver', 'redis', 'sqlite', 'path', 'examples'];
+const moduleNames = ['overview', 'modules', 'crypto', 'compression', 'fs', 'http', 'httpserver', 'redis', 'sqlite', 'path', 'exec', 'examples'];
 
 moduleNames.forEach(moduleName => {
     app.get('/modules/' + moduleName + '.html', (req, res) => {
@@ -114,6 +114,7 @@ app.get('/api/modules', (req, res) => {
         { name: 'redis', title: 'Redis 客户端' },
         { name: 'sqlite', title: 'SQLite 数据库' },
         { name: 'path', title: '路径操作' },
+        { name: 'exec', title: '命令执行' },
         { name: 'examples', title: '完整示例' }
     ];
     res.json({ success: true, modules: modules, count: modules.length });

@@ -40,6 +40,8 @@ func (m *Manager) registerBuiltinModules() {
 	m.modules["server"] = NewHTTPServerModule(m.vm) // 别名
 	m.modules["redis"] = NewRedisModule(m.vm)
 	m.modules["sqlite"] = NewSQLiteModule(m.vm)
+	m.modules["exec"] = NewExecModule(m.vm)
+	m.modules["child_process"] = NewExecModule(m.vm) // Node.js 风格别名
 }
 
 // GetModule 获取内置模块

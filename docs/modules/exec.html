@@ -1,0 +1,405 @@
+<section id="exec" class="content-section">
+    <h2 class="section-title">命令执行模块 (exec)</h2>
+    
+    <div class="module-intro">
+        <h3>exec / child_process</h3>
+        <p>提供系统命令执行功能，支持同步和异步执行、环境变量操作、命令查找等。</p>
+    </div>
+
+    <!-- exec.exec -->
+    <div class="api-method">
+        <div class="method-header">
+            <span class="method-signature">exec.exec(command: string, args?: string[], options?: object): object</span>
+            <div class="method-badges">
+                <span class="badge badge-sync">同步</span>
+            </div>
+        </div>
+        <div class="method-content">
+            <div class="method-description">同步执行系统命令。</div>
+            
+            <div class="params-section">
+                <div class="section-subtitle">参数</div>
+                <ul class="params-list">
+                    <li><code>command</code> - 要执行的命令</li>
+                    <li><code>args</code> - 命令参数数组（可选）</li>
+                    <li><code>options</code> - 选项对象（可选）
+                        <ul>
+                            <li><code>cwd</code> - 工作目录</li>
+                            <li><code>env</code> - 环境变量对象</li>
+                        </ul>
+                    </li>
+                </ul>
+            </div>
+            
+            <div class="returns-section">
+                <div class="section-subtitle">返回值</div>
+                <p>返回包含执行结果的对象：</p>
+                <ul class="params-list">
+                    <li><code>stdout</code> - 标准输出</li>
+                    <li><code>stderr</code> - 标准错误</li>
+                    <li><code>success</code> - 是否成功</li>
+                    <li><code>exitCode</code> - 退出码</li>
+                    <li><code>error</code> - 错误信息（如果有）</li>
+                </ul>
+            </div>
+            
+            <div class="code-example">
+const exec = require('exec');
+
+// 执行简单命令
+const result = exec.exec('echo', ['Hello', 'World']);
+console.log(result.stdout); // "Hello World"
+console.log(result.success); // true
+
+// 带选项执行
+const result2 = exec.exec('ls', ['-la'], {
+    cwd: '/tmp',
+    env: { MY_VAR: 'value' }
+});
+            </div>
+        </div>
+    </div>
+
+    <!-- exec.execAsync -->
+    <div class="api-method">
+        <div class="method-header">
+            <span class="method-signature">exec.execAsync(command: string, args?: string[], options?: object): Promise&lt;object&gt;</span>
+            <div class="method-badges">
+                <span class="badge badge-async">异步</span>
+            </div>
+        </div>
+        <div class="method-content">
+            <div class="method-description">异步执行系统命令，返回 Promise。</div>
+            
+            <div class="code-example">
+const exec = require('exec');
+
+// 异步执行命令
+exec.execAsync('npm', ['install']).then(result => {
+    console.log('安装完成:', result.success);
+    console.log('输出:', result.stdout);
+});
+
+// 使用 async/await
+async function runCommand() {
+    const result = await exec.execAsync('git', ['status']);
+    console.log(result.stdout);
+}
+            </div>
+        </div>
+    </div>
+
+    <!-- exec.shell -->
+    <div class="api-method">
+        <div class="method-header">
+            <span class="method-signature">exec.shell(command: string, options?: object): object</span>
+            <div class="method-badges">
+                <span class="badge badge-sync">同步</span>
+            </div>
+        </div>
+        <div class="method-content">
+            <div class="method-description">通过系统 shell 执行命令。Windows 使用 cmd，Unix 使用 sh。</div>
+            
+            <div class="code-example">
+const exec = require('exec');
+
+// 执行 shell 命令（支持管道、重定向等）
+const result = exec.shell('echo "Hello" && echo "World"');
+console.log(result.stdout);
+
+// Windows 示例
+const dirResult = exec.shell('dir /b | findstr .js');
+
+// Unix 示例
+const lsResult = exec.shell('ls -la | grep .js');
+            </div>
+        </div>
+    </div>
+
+    <!-- exec.run -->
+    <div class="api-method">
+        <div class="method-header">
+            <span class="method-signature">exec.run(command: string, options?: object): object</span>
+            <div class="method-badges">
+                <span class="badge badge-sync">同步</span>
+            </div>
+        </div>
+        <div class="method-content">
+            <div class="method-description">执行命令并返回合并的输出（stdout + stderr）。</div>
+            
+            <div class="code-example">
+const exec = require('exec');
+
+const result = exec.run('npm --version');
+console.log('输出:', result.output);
+console.log('成功:', result.success);
+            </div>
+        </div>
+    </div>
+
+    <!-- exec.execWithTimeout -->
+    <div class="api-method">
+        <div class="method-header">
+            <span class="method-signature">exec.execWithTimeout(command: string, timeout: number, args?: string[]): object</span>
+            <div class="method-badges">
+                <span class="badge badge-sync">同步</span>
+            </div>
+        </div>
+        <div class="method-content">
+            <div class="method-description">带超时限制执行命令。超时后命令会被终止。</div>
+            
+            <div class="params-section">
+                <div class="section-subtitle">参数</div>
+                <ul class="params-list">
+                    <li><code>command</code> - 要执行的命令</li>
+                    <li><code>timeout</code> - 超时时间（毫秒）</li>
+                    <li><code>args</code> - 命令参数数组（可选）</li>
+                </ul>
+            </div>
+            
+            <div class="code-example">
+const exec = require('exec');
+
+// 设置 5 秒超时
+const result = exec.execWithTimeout('ping', 5000, ['-c', '10', 'google.com']);
+
+if (result.timedOut) {
+    console.log('命令执行超时');
+} else {
+    console.log('执行完成:', result.stdout);
+}
+            </div>
+        </div>
+    </div>
+
+    <!-- 环境变量操作 -->
+    <div class="api-method">
+        <div class="method-header">
+            <span class="method-signature">exec.getEnv(key?: string, defaultValue?: string): string | object</span>
+            <div class="method-badges">
+                <span class="badge badge-sync">同步</span>
+            </div>
+        </div>
+        <div class="method-content">
+            <div class="method-description">获取环境变量。不传参数时返回所有环境变量。</div>
+            
+            <div class="code-example">
+const exec = require('exec');
+
+// 获取单个环境变量
+const path = exec.getEnv('PATH');
+const home = exec.getEnv('HOME', '/default/home');
+
+// 获取所有环境变量
+const allEnv = exec.getEnv();
+console.log(allEnv.PATH);
+            </div>
+        </div>
+    </div>
+
+    <div class="api-method">
+        <div class="method-header">
+            <span class="method-signature">exec.setEnv(key: string, value: string): boolean</span>
+            <div class="method-badges">
+                <span class="badge badge-sync">同步</span>
+            </div>
+        </div>
+        <div class="method-content">
+            <div class="method-description">设置环境变量。</div>
+            
+            <div class="code-example">
+const exec = require('exec');
+
+exec.setEnv('MY_APP_CONFIG', '/path/to/config');
+console.log(exec.getEnv('MY_APP_CONFIG'));
+            </div>
+        </div>
+    </div>
+
+    <!-- 目录操作 -->
+    <div class="api-method">
+        <div class="method-header">
+            <span class="method-signature">exec.cwd(): string</span>
+            <div class="method-badges">
+                <span class="badge badge-sync">同步</span>
+            </div>
+        </div>
+        <div class="method-content">
+            <div class="method-description">获取当前工作目录。</div>
+            
+            <div class="code-example">
+const exec = require('exec');
+
+console.log('当前目录:', exec.cwd());
+            </div>
+        </div>
+    </div>
+
+    <div class="api-method">
+        <div class="method-header">
+            <span class="method-signature">exec.chdir(path: string): boolean</span>
+            <div class="method-badges">
+                <span class="badge badge-sync">同步</span>
+            </div>
+        </div>
+        <div class="method-content">
+            <div class="method-description">改变当前工作目录。</div>
+            
+            <div class="code-example">
+const exec = require('exec');
+
+console.log('当前目录:', exec.cwd());
+exec.chdir('/tmp');
+console.log('新目录:', exec.cwd());
+            </div>
+        </div>
+    </div>
+
+    <!-- 命令查找 -->
+    <div class="api-method">
+        <div class="method-header">
+            <span class="method-signature">exec.which(command: string): string | null</span>
+            <div class="method-badges">
+                <span class="badge badge-sync">同步</span>
+            </div>
+        </div>
+        <div class="method-content">
+            <div class="method-description">查找命令的完整路径。类似 Unix 的 which 命令。</div>
+            
+            <div class="code-example">
+const exec = require('exec');
+
+const nodePath = exec.which('node');
+console.log('Node.js 路径:', nodePath);
+// 输出: /usr/local/bin/node
+
+const notFound = exec.which('nonexistent');
+console.log(notFound); // null
+            </div>
+        </div>
+    </div>
+
+    <div class="api-method">
+        <div class="method-header">
+            <span class="method-signature">exec.commandExists(command: string): boolean</span>
+            <div class="method-badges">
+                <span class="badge badge-sync">同步</span>
+            </div>
+        </div>
+        <div class="method-content">
+            <div class="method-description">检查命令是否存在于系统 PATH 中。</div>
+            
+            <div class="code-example">
+const exec = require('exec');
+
+if (exec.commandExists('docker')) {
+    console.log('Docker 已安装');
+    const result = exec.shell('docker --version');
+    console.log(result.stdout);
+} else {
+    console.log('Docker 未安装');
+}
+            </div>
+        </div>
+    </div>
+
+    <!-- 系统信息 -->
+    <div class="api-method">
+        <div class="method-header">
+            <span class="method-signature">exec.platform: string</span>
+            <div class="method-badges">
+                <span class="badge badge-property">属性</span>
+            </div>
+        </div>
+        <div class="method-content">
+            <div class="method-description">当前操作系统平台。可能的值：windows, linux, darwin 等。</div>
+            
+            <div class="code-example">
+const exec = require('exec');
+
+console.log('平台:', exec.platform);
+
+if (exec.platform === 'windows') {
+    exec.shell('dir');
+} else {
+    exec.shell('ls -la');
+}
+            </div>
+        </div>
+    </div>
+
+    <div class="api-method">
+        <div class="method-header">
+            <span class="method-signature">exec.arch: string</span>
+            <div class="method-badges">
+                <span class="badge badge-property">属性</span>
+            </div>
+        </div>
+        <div class="method-content">
+            <div class="method-description">当前系统架构。可能的值：amd64, arm64, 386 等。</div>
+            
+            <div class="code-example">
+const exec = require('exec');
+
+console.log('架构:', exec.arch);
+// 输出: amd64 或 arm64
+            </div>
+        </div>
+    </div>
+
+    <!-- 完整示例 -->
+    <div class="api-method">
+        <div class="method-header">
+            <span class="method-signature">完整示例</span>
+        </div>
+        <div class="method-content">
+            <div class="code-example">
+const exec = require('exec');
+
+// 构建脚本示例
+async function buildProject() {
+    console.log('开始构建项目...');
+    console.log('平台:', exec.platform, '架构:', exec.arch);
+    
+    // 检查必要的工具
+    const tools = ['node', 'npm', 'git'];
+    for (const tool of tools) {
+        if (!exec.commandExists(tool)) {
+            console.error(`错误: ${tool} 未安装`);
+            return false;
+        }
+    }
+    
+    // 安装依赖
+    console.log('安装依赖...');
+    const installResult = await exec.execAsync('npm', ['install']);
+    if (!installResult.success) {
+        console.error('安装失败:', installResult.stderr);
+        return false;
+    }
+    
+    // 运行测试
+    console.log('运行测试...');
+    const testResult = exec.execWithTimeout('npm', 60000, ['test']);
+    if (testResult.timedOut) {
+        console.error('测试超时');
+        return false;
+    }
+    
+    // 构建
+    console.log('构建项目...');
+    const buildResult = exec.shell('npm run build');
+    if (!buildResult.success) {
+        console.error('构建失败:', buildResult.stderr);
+        return false;
+    }
+    
+    console.log('构建完成!');
+    return true;
+}
+
+buildProject();
+            </div>
+        </div>
+    </div>
+</section>
