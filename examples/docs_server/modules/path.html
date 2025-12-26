@@ -1,0 +1,264 @@
+<section id="path" class="content-section">
+    <h2 class="section-title">路径操作模块 (path)</h2>
+    
+    <div class="module-intro">
+        <h3>path</h3>
+        <p>提供跨平台的路径操作功能，兼容不同操作系统的路径格式。</p>
+    </div>
+
+    <div class="api-method">
+        <div class="method-header">
+            <span class="method-signature">path.join(...paths: string[]): string</span>
+            <div class="method-badges">
+                <span class="badge badge-sync">同步</span>
+            </div>
+        </div>
+        <div class="method-content">
+            <div class="method-description">连接多个路径片段。</div>
+            
+            <div class="params-section">
+                <div class="section-subtitle">参数</div>
+                <div class="param-item">
+                    <div class="param-header">
+                        <span class="param-name">...paths</span>
+                        <span class="param-type">string[]</span>
+                        <span class="param-required">必需</span>
+                    </div>
+                    <div class="param-description">要连接的路径片段</div>
+                </div>
+            </div>
+
+            <div class="code-example">
+const path = require('path');
+
+// 连接路径
+const fullPath = path.join('home', 'user', 'documents', 'file.txt');
+console.log(fullPath); // home/user/documents/file.txt
+
+// 处理相对路径
+const relativePath = path.join('src', '..', 'dist', 'index.js');
+console.log(relativePath); // dist/index.js
+            </div>
+        </div>
+    </div>
+
+    <div class="api-method">
+        <div class="method-header">
+            <span class="method-signature">path.resolve(...paths: string[]): string</span>
+            <div class="method-badges">
+                <span class="badge badge-sync">同步</span>
+            </div>
+        </div>
+        <div class="method-content">
+            <div class="method-description">解析为绝对路径。</div>
+            
+            <div class="code-example">
+// 解析为绝对路径
+const absolutePath = path.resolve('src', 'utils', 'helper.js');
+console.log(absolutePath); // /current/working/directory/src/utils/helper.js
+
+// 从根目录开始
+const fromRoot = path.resolve('/usr', 'local', 'bin');
+console.log(fromRoot); // /usr/local/bin
+            </div>
+        </div>
+    </div>
+
+    <div class="api-method">
+        <div class="method-header">
+            <span class="method-signature">path.dirname(path: string): string</span>
+            <div class="method-badges">
+                <span class="badge badge-sync">同步</span>
+            </div>
+        </div>
+        <div class="method-content">
+            <div class="method-description">获取路径的目录部分。</div>
+            
+            <div class="code-example">
+const filePath = '/home/user/documents/report.pdf';
+const directory = path.dirname(filePath);
+console.log(directory); // /home/user/documents
+            </div>
+        </div>
+    </div>
+
+    <div class="api-method">
+        <div class="method-header">
+            <span class="method-signature">path.basename(path: string, ext?: string): string</span>
+            <div class="method-badges">
+                <span class="badge badge-sync">同步</span>
+            </div>
+        </div>
+        <div class="method-content">
+            <div class="method-description">获取路径的文件名部分。</div>
+            
+            <div class="params-section">
+                <div class="section-subtitle">参数</div>
+                <div class="param-item">
+                    <div class="param-header">
+                        <span class="param-name">path</span>
+                        <span class="param-type">string</span>
+                        <span class="param-required">必需</span>
+                    </div>
+                    <div class="param-description">文件路径</div>
+                </div>
+                <div class="param-item">
+                    <div class="param-header">
+                        <span class="param-name">ext</span>
+                        <span class="param-type">string</span>
+                        <span class="param-optional">可选</span>
+                    </div>
+                    <div class="param-description">要移除的扩展名</div>
+                </div>
+            </div>
+
+            <div class="code-example">
+const filePath = '/home/user/documents/report.pdf';
+
+// 获取完整文件名
+const filename = path.basename(filePath);
+console.log(filename); // report.pdf
+
+// 获取不带扩展名的文件名
+const nameOnly = path.basename(filePath, '.pdf');
+console.log(nameOnly); // report
+            </div>
+        </div>
+    </div>
+
+    <div class="api-method">
+        <div class="method-header">
+            <span class="method-signature">path.extname(path: string): string</span>
+            <div class="method-badges">
+                <span class="badge badge-sync">同步</span>
+            </div>
+        </div>
+        <div class="method-content">
+            <div class="method-description">获取路径的扩展名。</div>
+            
+            <div class="code-example">
+const files = [
+  'document.pdf',
+  'script.js',
+  'style.css',
+  'image.png',
+  'README'
+];
+
+files.forEach(file => {
+  const ext = path.extname(file);
+  console.log(`${file} -> ${ext || '(无扩展名)'}`);
+});
+
+// 输出:
+// document.pdf -> .pdf
+// script.js -> .js
+// style.css -> .css
+// image.png -> .png
+// README -> (无扩展名)
+            </div>
+        </div>
+    </div>
+
+    <div class="api-method">
+        <div class="method-header">
+            <span class="method-signature">path.isAbsolute(path: string): boolean</span>
+            <div class="method-badges">
+                <span class="badge badge-sync">同步</span>
+            </div>
+        </div>
+        <div class="method-content">
+            <div class="method-description">判断路径是否为绝对路径。</div>
+            
+            <div class="code-example">
+const paths = [
+  '/usr/local/bin',
+  './relative/path',
+  '../parent/dir',
+  'C:\\Windows\\System32',
+  'relative/path'
+];
+
+paths.forEach(p => {
+  const isAbs = path.isAbsolute(p);
+  console.log(`${p} -> ${isAbs ? '绝对路径' : '相对路径'}`);
+});
+            </div>
+        </div>
+    </div>
+
+    <div class="api-method">
+        <div class="method-header">
+            <span class="method-signature">path.relative(from: string, to: string): string</span>
+            <div class="method-badges">
+                <span class="badge badge-sync">同步</span>
+            </div>
+        </div>
+        <div class="method-content">
+            <div class="method-description">计算从一个路径到另一个路径的相对路径。</div>
+            
+            <div class="code-example">
+const from = '/home/user/projects/app';
+const to = '/home/user/projects/shared/utils';
+
+const relativePath = path.relative(from, to);
+console.log(relativePath); // ../shared/utils
+
+// 反向计算
+const backPath = path.relative(to, from);
+console.log(backPath); // ../../app
+            </div>
+        </div>
+    </div>
+
+    <div class="api-method">
+        <div class="method-header">
+            <span class="method-signature">path.normalize(path: string): string</span>
+            <div class="method-badges">
+                <span class="badge badge-sync">同步</span>
+            </div>
+        </div>
+        <div class="method-content">
+            <div class="method-description">规范化路径，解析 '.' 和 '..' 片段。</div>
+            
+            <div class="code-example">
+const messyPaths = [
+  '/home/user/../user/./documents',
+  'src//utils//../helpers/./index.js',
+  './a/b/c/../../d'
+];
+
+messyPaths.forEach(p => {
+  const normalized = path.normalize(p);
+  console.log(`${p} -> ${normalized}`);
+});
+
+// 输出:
+// /home/user/../user/./documents -> /home/user/documents
+// src//utils//../helpers/./index.js -> src/helpers/index.js
+// ./a/b/c/../../d -> a/d
+            </div>
+        </div>
+    </div>
+
+    <div class="api-method">
+        <div class="method-header">
+            <span class="method-signature">路径常量</span>
+        </div>
+        <div class="method-content">
+            <div class="method-description">提供平台相关的路径常量。</div>
+            
+            <div class="code-example">
+// 路径分隔符
+console.log('路径分隔符:', path.sep); // Windows: \, Unix: /
+
+// 环境变量分隔符
+console.log('环境变量分隔符:', path.delimiter); // Windows: ;, Unix: :
+
+// 构建跨平台路径
+const crossPlatformPath = ['home', 'user', 'documents'].join(path.sep);
+console.log(crossPlatformPath);
+            </div>
+        </div>
+    </div>
+</section>

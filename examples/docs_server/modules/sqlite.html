@@ -1,0 +1,284 @@
+<section id="sqlite" class="content-section">
+    <h2 class="section-title">SQLite数据库模块 (sqlite)</h2>
+    
+    <div class="module-intro">
+        <h3>sqlite</h3>
+        <p>提供完整的SQLite数据库功能，支持SQL查询、事务、预处理语句等。</p>
+    </div>
+
+    <div class="api-method">
+        <div class="method-header">
+            <span class="method-signature">sqlite.open(database: string | config): Promise&lt;Database&gt;</span>
+            <div class="method-badges">
+                <span class="badge badge-async">异步</span>
+                <span class="badge badge-promise">Promise</span>
+            </div>
+        </div>
+        <div class="method-content">
+            <div class="method-description">打开SQLite数据库连接。</div>
+            
+            <div class="params-section">
+                <div class="section-subtitle">参数</div>
+                <div class="param-item">
+                    <div class="param-header">
+                        <span class="param-name">database</span>
+                        <span class="param-type">string | object</span>
+                        <span class="param-required">必需</span>
+                    </div>
+                    <div class="param-description">数据库文件路径或配置对象</div>
+                </div>
+            </div>
+
+            <div class="returns-section">
+                <div class="section-subtitle">返回值</div>
+                <div class="return-type">Promise&lt;Database&gt; - 数据库实例</div>
+            </div>
+
+            <div class="code-example">
+const sqlite = require('sqlite');
+
+// 打开文件数据库
+const db = await sqlite.open('./database.db');
+
+// 打开内存数据库
+const memDb = await sqlite.open(':memory:');
+
+// 使用配置对象
+const db = await sqlite.open({
+  database: './app.db',
+  mode: 'rwc',
+  cache: 'shared'
+});
+            </div>
+        </div>
+    </div>
+
+    <div class="api-method">
+        <div class="method-header">
+            <span class="method-signature">db.exec(sql: string, params?: any[]): Promise&lt;Result&gt;</span>
+            <div class="method-badges">
+                <span class="badge badge-async">异步</span>
+                <span class="badge badge-promise">Promise</span>
+            </div>
+        </div>
+        <div class="method-content">
+            <div class="method-description">执行SQL语句（不返回查询结果）。</div>
+            
+            <div class="params-section">
+                <div class="section-subtitle">参数</div>
+                <div class="param-item">
+                    <div class="param-header">
+                        <span class="param-name">sql</span>
+                        <span class="param-type">string</span>
+                        <span class="param-required">必需</span>
+                    </div>
+                    <div class="param-description">SQL语句</div>
+                </div>
+                <div class="param-item">
+                    <div class="param-header">
+                        <span class="param-name">params</span>
+                        <span class="param-type">any[]</span>
+                        <span class="param-optional">可选</span>
+                    </div>
+                    <div class="param-description">SQL参数数组</div>
+                </div>
+            </div>
+
+            <div class="code-example">
+// 创建表
+await db.exec(`
+  CREATE TABLE users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    email TEXT UNIQUE,
+    age INTEGER,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  )
+`);
+
+// 插入数据
+const result = await db.exec(
+  'INSERT INTO users (name, email, age) VALUES (?, ?, ?)',
+  ['张三', 'zhangsan@example.com', 25]
+);
+
+console.log('插入ID:', result.lastInsertId);
+console.log('影响行数:', result.rowsAffected);
+            </div>
+        </div>
+    </div>
+
+    <div class="api-method">
+        <div class="method-header">
+            <span class="method-signature">db.get(sql: string, params?: any[]): Promise&lt;object | null&gt;</span>
+            <div class="method-badges">
+                <span class="badge badge-async">异步</span>
+                <span class="badge badge-promise">Promise</span>
+            </div>
+        </div>
+        <div class="method-content">
+            <div class="method-description">查询单行数据。</div>
+            
+            <div class="code-example">
+// 根据ID查询用户
+const user = await db.get('SELECT * FROM users WHERE id = ?', [1]);
+
+if (user) {
+  console.log('用户信息:', user);
+  console.log('姓名:', user.name);
+  console.log('邮箱:', user.email);
+} else {
+  console.log('用户不存在');
+}
+            </div>
+        </div>
+    </div>
+
+    <div class="api-method">
+        <div class="method-header">
+            <span class="method-signature">db.all(sql: string, params?: any[]): Promise&lt;object[]&gt;</span>
+            <div class="method-badges">
+                <span class="badge badge-async">异步</span>
+                <span class="badge badge-promise">Promise</span>
+            </div>
+        </div>
+        <div class="method-content">
+            <div class="method-description">查询多行数据。</div>
+            
+            <div class="code-example">
+// 查询所有成年用户
+const adults = await db.all('SELECT * FROM users WHERE age >= ?', [18]);
+
+console.log('成年用户数量:', adults.length);
+adults.forEach(user => {
+  console.log(`${user.name} (${user.age}岁)`);
+});
+
+// 分页查询
+const page1 = await db.all(
+  'SELECT * FROM users ORDER BY created_at DESC LIMIT ? OFFSET ?',
+  [10, 0]
+);
+            </div>
+        </div>
+    </div>
+
+    <div class="api-method">
+        <div class="method-header">
+            <span class="method-signature">db.transaction(callback: Function): Promise&lt;any&gt;</span>
+            <div class="method-badges">
+                <span class="badge badge-async">异步</span>
+                <span class="badge badge-promise">Promise</span>
+            </div>
+        </div>
+        <div class="method-content">
+            <div class="method-description">执行事务操作。</div>
+            
+            <div class="params-section">
+                <div class="section-subtitle">参数</div>
+                <div class="param-item">
+                    <div class="param-header">
+                        <span class="param-name">callback</span>
+                        <span class="param-type">Function</span>
+                        <span class="param-required">必需</span>
+                    </div>
+                    <div class="param-description">事务回调函数，接收事务对象作为参数</div>
+                </div>
+            </div>
+
+            <div class="code-example">
+// 使用事务批量操作
+await db.transaction(async (tx) => {
+  // 插入用户
+  const userResult = await tx.run(
+    'INSERT INTO users (name, email, age) VALUES (?, ?, ?)',
+    ['李四', 'lisi@example.com', 30]
+  );
+  
+  const userId = userResult.lastInsertId;
+  
+  // 插入用户配置
+  await tx.run(
+    'INSERT INTO user_settings (user_id, theme, language) VALUES (?, ?, ?)',
+    [userId, 'dark', 'zh-CN']
+  );
+  
+  // 更新统计
+  await tx.run('UPDATE stats SET user_count = user_count + 1');
+  
+  console.log('事务执行成功，用户ID:', userId);
+});
+            </div>
+        </div>
+    </div>
+
+    <div class="api-method">
+        <div class="method-header">
+            <span class="method-signature">db.prepare(sql: string): Promise&lt;Statement&gt;</span>
+            <div class="method-badges">
+                <span class="badge badge-async">异步</span>
+                <span class="badge badge-promise">Promise</span>
+            </div>
+        </div>
+        <div class="method-content">
+            <div class="method-description">创建预处理语句。</div>
+            
+            <div class="code-example">
+// 创建预处理语句
+const stmt = await db.prepare('SELECT * FROM users WHERE age > ?');
+
+// 多次执行
+const adults = await stmt.all(18);
+const seniors = await stmt.all(60);
+
+console.log('成年人数:', adults.length);
+console.log('老年人数:', seniors.length);
+
+// 关闭预处理语句
+await stmt.close();
+            </div>
+        </div>
+    </div>
+
+    <div class="api-method">
+        <div class="method-header">
+            <span class="method-signature">db.tables(): Promise&lt;string[]&gt;</span>
+            <div class="method-badges">
+                <span class="badge badge-async">异步</span>
+                <span class="badge badge-promise">Promise</span>
+            </div>
+        </div>
+        <div class="method-content">
+            <div class="method-description">获取数据库中所有表名。</div>
+            
+            <div class="code-example">
+// 获取所有表
+const tables = await db.tables();
+console.log('数据库表:', tables);
+
+// 获取表结构
+const userSchema = await db.schema('users');
+console.log('用户表结构:', userSchema);
+            </div>
+        </div>
+    </div>
+
+    <div class="api-method">
+        <div class="method-header">
+            <span class="method-signature">db.close(): Promise&lt;string&gt;</span>
+            <div class="method-badges">
+                <span class="badge badge-async">异步</span>
+                <span class="badge badge-promise">Promise</span>
+            </div>
+        </div>
+        <div class="method-content">
+            <div class="method-description">关闭数据库连接。</div>
+            
+            <div class="code-example">
+// 关闭数据库连接
+await db.close();
+console.log('数据库连接已关闭');
+            </div>
+        </div>
+    </div>
+</section>

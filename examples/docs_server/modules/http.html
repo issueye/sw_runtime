@@ -1,0 +1,200 @@
+<section id="http" class="content-section">
+    <h2 class="section-title">HTTP客户端模块 (http)</h2>
+    
+    <div class="module-intro">
+        <h3>http</h3>
+        <p>提供完整的 HTTP 客户端功能，支持所有 HTTP 方法和高级配置选项。</p>
+    </div>
+
+    <div class="api-method">
+        <div class="method-header">
+            <span class="method-signature">http.get(url: string, config?: HttpConfig): Promise&lt;HttpResponse&gt;</span>
+            <div class="method-badges">
+                <span class="badge badge-async">异步</span>
+                <span class="badge badge-promise">Promise</span>
+            </div>
+        </div>
+        <div class="method-content">
+            <div class="method-description">发送 GET 请求。</div>
+            
+            <div class="params-section">
+                <div class="section-subtitle">参数</div>
+                <div class="param-item">
+                    <div class="param-header">
+                        <span class="param-name">url</span>
+                        <span class="param-type">string</span>
+                        <span class="param-required">必需</span>
+                    </div>
+                    <div class="param-description">请求的 URL</div>
+                </div>
+                <div class="param-item">
+                    <div class="param-header">
+                        <span class="param-name">config</span>
+                        <span class="param-type">HttpConfig</span>
+                        <span class="param-optional">可选</span>
+                    </div>
+                    <div class="param-description">请求配置选项</div>
+                </div>
+            </div>
+
+            <div class="returns-section">
+                <div class="section-subtitle">返回值</div>
+                <div class="return-type">Promise&lt;HttpResponse&gt; - HTTP 响应对象</div>
+            </div>
+
+            <div class="code-example">
+const http = require('http');
+
+// 简单 GET 请求
+http.get('https://api.example.com/users')
+  .then(response => {
+    console.log('状态码:', response.status);
+    console.log('数据:', response.data);
+  })
+  .catch(error => {
+    console.error('请求失败:', error);
+  });
+
+// 带参数的 GET 请求
+http.get('https://api.example.com/search', {
+  params: {
+    q: 'javascript',
+    page: 1,
+    limit: 10
+  },
+  headers: {
+    'User-Agent': 'SW-Runtime/1.0',
+    'Accept': 'application/json'
+  },
+  timeout: 10
+}).then(response => {
+  console.log('搜索结果:', response.data);
+});
+            </div>
+        </div>
+    </div>
+
+    <div class="api-method">
+        <div class="method-header">
+            <span class="method-signature">http.post(url: string, config?: HttpConfig): Promise&lt;HttpResponse&gt;</span>
+            <div class="method-badges">
+                <span class="badge badge-async">异步</span>
+                <span class="badge badge-promise">Promise</span>
+            </div>
+        </div>
+        <div class="method-content">
+            <div class="method-description">发送 POST 请求。</div>
+            
+            <div class="code-example">
+// POST JSON 数据
+http.post('https://api.example.com/users', {
+  data: {
+    name: '张三',
+    email: 'zhangsan@example.com',
+    age: 25,
+    department: '技术部'
+  },
+  headers: {
+    'Content-Type': 'application/json',
+    'Authorization': 'Bearer token123'
+  }
+}).then(response => {
+  if (response.status === 201) {
+    console.log('用户创建成功:', response.data);
+  }
+}).catch(error => {
+  console.error('创建失败:', error);
+});
+
+// POST 表单数据
+http.post('https://api.example.com/login', {
+  data: 'username=admin&password=123456',
+  headers: {
+    'Content-Type': 'application/x-www-form-urlencoded'
+  }
+});
+            </div>
+        </div>
+    </div>
+
+    <div class="api-method">
+        <div class="method-header">
+            <span class="method-signature">http.createClient(config?: ClientConfig): HttpClient</span>
+            <div class="method-badges">
+                <span class="badge badge-sync">同步</span>
+            </div>
+        </div>
+        <div class="method-content">
+            <div class="method-description">创建自定义 HTTP 客户端实例。</div>
+            
+            <div class="code-example">
+// 创建自定义客户端
+const apiClient = http.createClient({
+  timeout: 30, // 30秒超时
+  baseURL: 'https://api.example.com',
+  headers: {
+    'Authorization': 'Bearer your-token-here',
+    'User-Agent': 'MyApp/1.0'
+  }
+});
+
+// 使用客户端发送请求
+async function fetchUserData() {
+  try {
+    // 获取用户列表
+    const users = await apiClient.get('/users');
+    console.log('用户列表:', users.data);
+    
+    // 获取特定用户
+    const user = await apiClient.get('/users/1');
+    console.log('用户详情:', user.data);
+    
+    // 更新用户信息
+    const updated = await apiClient.put('/users/1', {
+      data: { name: '新名字' }
+    });
+    console.log('更新结果:', updated.data);
+    
+  } catch (error) {
+    console.error('API 请求失败:', error);
+  }
+}
+            </div>
+        </div>
+    </div>
+
+    <div class="api-method">
+        <div class="method-header">
+            <span class="method-signature">HttpResponse 对象结构</span>
+        </div>
+        <div class="method-content">
+            <div class="method-description">HTTP 响应对象包含以下属性：</div>
+            
+            <div class="code-example">
+{
+  status: 200,                    // HTTP 状态码
+  statusText: "OK",              // 状态文本
+  headers: {                      // 响应头
+    "content-type": "application/json",
+    "content-length": "1234",
+    "server": "nginx/1.18.0"
+  },
+  data: { ... },                  // 解析后的响应数据 (JSON)
+  text: "...",                   // 原始响应文本
+  url: "https://api.example.com", // 请求 URL
+  config: { ... }                 // 请求配置
+}
+
+// 使用示例
+http.get('https://api.example.com/users')
+  .then(response => {
+    if (response.status === 200) {
+      console.log('请求成功');
+      console.log('数据类型:', response.headers['content-type']);
+      console.log('用户数量:', response.data.length);
+    }
+  });
+            </div>
+        </div>
+    </div>
+</section>

@@ -1,0 +1,276 @@
+<section id="redis" class="content-section">
+    <h2 class="section-title">Redis客户端模块 (redis)</h2>
+    
+    <div class="module-intro">
+        <h3>redis</h3>
+        <p>提供完整的Redis客户端功能，支持所有主要数据类型和操作。</p>
+    </div>
+
+    <div class="api-method">
+        <div class="method-header">
+            <span class="method-signature">redis.createClient(config?: RedisConfig): Promise&lt;RedisClient&gt;</span>
+            <div class="method-badges">
+                <span class="badge badge-async">异步</span>
+                <span class="badge badge-promise">Promise</span>
+            </div>
+        </div>
+        <div class="method-content">
+            <div class="method-description">创建Redis客户端连接。</div>
+            
+            <div class="params-section">
+                <div class="section-subtitle">参数</div>
+                <div class="param-item">
+                    <div class="param-header">
+                        <span class="param-name">config</span>
+                        <span class="param-type">RedisConfig</span>
+                        <span class="param-optional">可选</span>
+                    </div>
+                    <div class="param-description">Redis连接配置</div>
+                </div>
+            </div>
+
+            <div class="returns-section">
+                <div class="section-subtitle">返回值</div>
+                <div class="return-type">Promise&lt;RedisClient&gt; - Redis客户端实例</div>
+            </div>
+
+            <div class="code-example">
+const redis = require('redis');
+
+// 使用默认配置连接
+const client = await redis.createClient();
+
+// 使用自定义配置
+const client = await redis.createClient({
+  host: 'localhost',
+  port: 6379,
+  password: 'mypassword',
+  db: 0
+});
+            </div>
+        </div>
+    </div>
+
+    <div class="api-method">
+        <div class="method-header">
+            <span class="method-signature">client.set(key: string, value: string, expiration?: number): Promise&lt;string&gt;</span>
+            <div class="method-badges">
+                <span class="badge badge-async">异步</span>
+                <span class="badge badge-promise">Promise</span>
+            </div>
+        </div>
+        <div class="method-content">
+            <div class="method-description">设置字符串值。</div>
+            
+            <div class="params-section">
+                <div class="section-subtitle">参数</div>
+                <div class="param-item">
+                    <div class="param-header">
+                        <span class="param-name">key</span>
+                        <span class="param-type">string</span>
+                        <span class="param-required">必需</span>
+                    </div>
+                    <div class="param-description">键名</div>
+                </div>
+                <div class="param-item">
+                    <div class="param-header">
+                        <span class="param-name">value</span>
+                        <span class="param-type">string</span>
+                        <span class="param-required">必需</span>
+                    </div>
+                    <div class="param-description">值</div>
+                </div>
+                <div class="param-item">
+                    <div class="param-header">
+                        <span class="param-name">expiration</span>
+                        <span class="param-type">number</span>
+                        <span class="param-optional">可选</span>
+                    </div>
+                    <div class="param-description">过期时间（秒）</div>
+                </div>
+            </div>
+
+            <div class="code-example">
+// 设置字符串值
+await client.set('username', 'john_doe');
+
+// 设置带过期时间的值
+await client.set('session:123', 'active', 3600); // 1小时后过期
+            </div>
+        </div>
+    </div>
+
+    <div class="api-method">
+        <div class="method-header">
+            <span class="method-signature">client.get(key: string): Promise&lt;string | null&gt;</span>
+            <div class="method-badges">
+                <span class="badge badge-async">异步</span>
+                <span class="badge badge-promise">Promise</span>
+            </div>
+        </div>
+        <div class="method-content">
+            <div class="method-description">获取字符串值。</div>
+            
+            <div class="code-example">
+const username = await client.get('username');
+if (username) {
+  console.log('用户名:', username);
+} else {
+  console.log('用户名不存在');
+}
+            </div>
+        </div>
+    </div>
+
+    <div class="api-method">
+        <div class="method-header">
+            <span class="method-signature">client.setJSON(key: string, value: any, expiration?: number): Promise&lt;string&gt;</span>
+            <div class="method-badges">
+                <span class="badge badge-async">异步</span>
+                <span class="badge badge-promise">Promise</span>
+            </div>
+        </div>
+        <div class="method-content">
+            <div class="method-description">设置JSON对象（自动序列化）。</div>
+            
+            <div class="code-example">
+// 存储用户对象
+const userData = {
+  id: 1,
+  name: 'John Doe',
+  email: 'john@example.com',
+  roles: ['user', 'admin']
+};
+
+await client.setJSON('user:1', userData, 7200); // 2小时过期
+            </div>
+        </div>
+    </div>
+
+    <div class="api-method">
+        <div class="method-header">
+            <span class="method-signature">client.getJSON(key: string): Promise&lt;any | null&gt;</span>
+            <div class="method-badges">
+                <span class="badge badge-async">异步</span>
+                <span class="badge badge-promise">Promise</span>
+            </div>
+        </div>
+        <div class="method-content">
+            <div class="method-description">获取JSON对象（自动反序列化）。</div>
+            
+            <div class="code-example">
+const user = await client.getJSON('user:1');
+if (user) {
+  console.log('用户信息:', user.name, user.email);
+  console.log('用户角色:', user.roles);
+}
+            </div>
+        </div>
+    </div>
+
+    <div class="api-method">
+        <div class="method-header">
+            <span class="method-signature">client.hset(key: string, field: string, value: string): Promise&lt;number&gt;</span>
+            <div class="method-badges">
+                <span class="badge badge-async">异步</span>
+                <span class="badge badge-promise">Promise</span>
+            </div>
+        </div>
+        <div class="method-content">
+            <div class="method-description">设置哈希字段值。</div>
+            
+            <div class="code-example">
+// 设置用户配置
+await client.hset('user:1:profile', 'name', 'Alice');
+await client.hset('user:1:profile', 'age', '25');
+await client.hset('user:1:profile', 'city', 'Beijing');
+            </div>
+        </div>
+    </div>
+
+    <div class="api-method">
+        <div class="method-header">
+            <span class="method-signature">client.hgetall(key: string): Promise&lt;object&gt;</span>
+            <div class="method-badges">
+                <span class="badge badge-async">异步</span>
+                <span class="badge badge-promise">Promise</span>
+            </div>
+        </div>
+        <div class="method-content">
+            <div class="method-description">获取哈希的所有字段和值。</div>
+            
+            <div class="code-example">
+const profile = await client.hgetall('user:1:profile');
+console.log('用户资料:', profile);
+// 输出: { name: 'Alice', age: '25', city: 'Beijing' }
+            </div>
+        </div>
+    </div>
+
+    <div class="api-method">
+        <div class="method-header">
+            <span class="method-signature">client.lpush(key: string, ...values: string[]): Promise&lt;number&gt;</span>
+            <div class="method-badges">
+                <span class="badge badge-async">异步</span>
+                <span class="badge badge-promise">Promise</span>
+            </div>
+        </div>
+        <div class="method-content">
+            <div class="method-description">从列表左侧推入元素。</div>
+            
+            <div class="code-example">
+// 添加任务到队列
+await client.lpush('tasks', 'task1', 'task2', 'task3');
+
+// 获取队列长度
+const length = await client.llen('tasks');
+console.log('队列长度:', length);
+            </div>
+        </div>
+    </div>
+
+    <div class="api-method">
+        <div class="method-header">
+            <span class="method-signature">client.lrange(key: string, start: number, stop: number): Promise&lt;string[]&gt;</span>
+            <div class="method-badges">
+                <span class="badge badge-async">异步</span>
+                <span class="badge badge-promise">Promise</span>
+            </div>
+        </div>
+        <div class="method-content">
+            <div class="method-description">获取列表指定范围的元素。</div>
+            
+            <div class="code-example">
+// 获取所有任务
+const allTasks = await client.lrange('tasks', 0, -1);
+console.log('所有任务:', allTasks);
+
+// 获取前3个任务
+const topTasks = await client.lrange('tasks', 0, 2);
+console.log('前3个任务:', topTasks);
+            </div>
+        </div>
+    </div>
+
+    <div class="api-method">
+        <div class="method-header">
+            <span class="method-signature">client.sadd(key: string, ...members: string[]): Promise&lt;number&gt;</span>
+            <div class="method-badges">
+                <span class="badge badge-async">异步</span>
+                <span class="badge badge-promise">Promise</span>
+            </div>
+        </div>
+        <div class="method-content">
+            <div class="method-description">向集合添加成员。</div>
+            
+            <div class="code-example">
+// 添加标签
+await client.sadd('tags', 'javascript', 'redis', 'nodejs');
+
+// 获取所有标签
+const tags = await client.smembers('tags');
+console.log('标签列表:', tags);
+            </div>
+        </div>
+    </div>
+</section>

@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SW Runtime - 运行时接口文档</title>
+    <link rel="stylesheet" href="assets/css/styles.css">
+</head>
+<body>
+    <div class="layout">
+        <!-- 左侧菜单 -->
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <h1>SW Runtime</h1>
+                <p>运行时接口文档</p>
+            </div>
+            
+            <nav class="sidebar-nav">
+                <div class="nav-section">
+                    <div class="nav-section-title">概述</div>
+                    <ul class="nav-items">
+                        <li class="nav-item">
+                            <a href="#overview" class="nav-link active">运行时概述</a>
+                        </li>
+                    </ul>
+                </div>
+
+                <div class="nav-section">
+                    <div class="nav-section-title">核心模块</div>
+                    <ul class="nav-items">
+                        <li class="nav-item">
+                            <a href="#modules" class="nav-link">模块系统</a>
+                            <ul class="nav-sub-items">
+                                <li class="nav-sub-item">
+                                    <a href="#require" class="nav-link">require()</a>
+                                </li>
+                                <li class="nav-sub-item">
+                                    <a href="#import" class="nav-link">import()</a>
+                                </li>
+                            </ul>
+                        </li>
+                    </ul>
+                </div>
+
+                <div class="nav-section">
+                    <div class="nav-section-title">内置模块</div>
+                    <ul class="nav-items">
+                        <li class="nav-item">
+                            <a href="#crypto" class="nav-link">加密模块 (crypto)</a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="#compression" class="nav-link">压缩模块 (compression)</a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="#fs" class="nav-link">文件系统 (fs)</a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="#http" class="nav-link">HTTP客户端 (http)</a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="#httpserver" class="nav-link">HTTP服务器 (httpserver)</a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="#redis" class="nav-link">Redis客户端 (redis)</a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="#sqlite" class="nav-link">SQLite数据库 (sqlite)</a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="#path" class="nav-link">路径操作 (path)</a>
+                        </li>
+                    </ul>
+                </div>
+
+                <div class="nav-section">
+                    <div class="nav-section-title">示例</div>
+                    <ul class="nav-items">
+                        <li class="nav-item">
+                            <a href="#examples" class="nav-link">完整示例</a>
+                        </li>
+                    </ul>
+                </div>
+            </nav>
+        </div>
+
+        <!-- 右侧内容区域 -->
+        <div class="main-content">
+            <div class="content-header">
+                <h1>SW Runtime 接口文档</h1>
+                <p>企业级 JavaScript/TypeScript 运行时 - 基于 Go 和 goja 构建</p>
+            </div>
+
+            <div class="content-body">
+                <!-- 默认显示概述 -->
+                <section id="overview" class="content-section active">
+                    <h2 class="section-title">运行时概述</h2>
+                    
+                    <div class="module-intro">
+                        <h3>关于 SW Runtime</h3>
+                        <p>SW Runtime 是一个基于 Go 和 goja 的高性能 JavaScript/TypeScript 运行时，提供了完整的模块系统和丰富的内置功能模块，专为企业级应用设计。</p>
+                    </div>
+
+                    <div class="api-method">
+                        <div class="method-header">
+                            <span class="method-signature">核心特性</span>
+                        </div>
+                        <div class="method-content">
+                            <div class="method-description">
+                                SW Runtime 提供以下核心特性：
+                            </div>
+                            <ul style="margin: 15px 0; padding-left: 25px; color: #555;">
+                                <li><strong>模块系统</strong>: 支持 CommonJS require() 和 ES6 动态 import()</li>
+                                <li><strong>TypeScript 支持</strong>: 自动编译 .ts 文件，无需额外配置</li>
+                                <li><strong>异步支持</strong>: 完整的 Promise 和事件循环支持</li>
+                                <li><strong>内置模块</strong>: 加密、压缩、文件系统、HTTP、数据库等</li>
+                                <li><strong>高性能</strong>: 基于 Go 的高并发和低内存占用</li>
+                                <li><strong>跨平台</strong>: 支持 Windows、Linux、macOS</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div class="api-method">
+                        <div class="method-header">
+                            <span class="method-signature">支持的文件类型</span>
+                        </div>
+                        <div class="method-content">
+                            <div class="code-example">
+// JavaScript 文件
+const utils = require('./utils.js');
+
+// TypeScript 文件（自动编译）
+const service = require('./service.ts');
+
+// JSON 配置文件
+const config = require('./config.json');
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </div>
+    </div>
+
+    <script src="assets/js/app.js"></script>
+</body>
+</html>

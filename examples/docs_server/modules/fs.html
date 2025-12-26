@@ -1,0 +1,171 @@
+<section id="fs" class="content-section">
+    <h2 class="section-title">文件系统模块 (fs)</h2>
+    
+    <div class="module-intro">
+        <h3>fs</h3>
+        <p>提供完整的文件系统操作功能，包括同步和异步方法。</p>
+    </div>
+
+    <div class="api-method">
+        <div class="method-header">
+            <span class="method-signature">fs.readFileSync(filename: string, encoding?: string): string</span>
+            <div class="method-badges">
+                <span class="badge badge-sync">同步</span>
+            </div>
+        </div>
+        <div class="method-content">
+            <div class="method-description">同步读取文件内容。</div>
+            
+            <div class="params-section">
+                <div class="section-subtitle">参数</div>
+                <div class="param-item">
+                    <div class="param-header">
+                        <span class="param-name">filename</span>
+                        <span class="param-type">string</span>
+                        <span class="param-required">必需</span>
+                    </div>
+                    <div class="param-description">文件路径</div>
+                </div>
+                <div class="param-item">
+                    <div class="param-header">
+                        <span class="param-name">encoding</span>
+                        <span class="param-type">string</span>
+                        <span class="param-optional">可选</span>
+                    </div>
+                    <div class="param-description">文件编码，默认为 'utf8'</div>
+                </div>
+            </div>
+
+            <div class="code-example">
+const fs = require('fs');
+
+// 读取文本文件
+const content = fs.readFileSync('config.json', 'utf8');
+console.log(content);
+
+// 读取并解析 JSON 配置
+const configText = fs.readFileSync('config.json');
+const config = JSON.parse(configText);
+console.log('配置:', config);
+            </div>
+        </div>
+    </div>
+
+    <div class="api-method">
+        <div class="method-header">
+            <span class="method-signature">fs.writeFileSync(filename: string, data: string): void</span>
+            <div class="method-badges">
+                <span class="badge badge-sync">同步</span>
+            </div>
+        </div>
+        <div class="method-content">
+            <div class="method-description">同步写入文件。</div>
+            
+            <div class="code-example">
+// 写入文本文件
+fs.writeFileSync('output.txt', 'Hello World');
+
+// 写入 JSON 数据
+const data = { name: '张三', age: 25 };
+fs.writeFileSync('user.json', JSON.stringify(data, null, 2));
+
+// 写入日志
+const logEntry = `[${new Date().toISOString()}] 应用启动\n`;
+fs.writeFileSync('app.log', logEntry);
+            </div>
+        </div>
+    </div>
+
+    <div class="api-method">
+        <div class="method-header">
+            <span class="method-signature">fs.readFile(filename: string): Promise&lt;string&gt;</span>
+            <div class="method-badges">
+                <span class="badge badge-async">异步</span>
+                <span class="badge badge-promise">Promise</span>
+            </div>
+        </div>
+        <div class="method-content">
+            <div class="method-description">异步读取文件内容。</div>
+            
+            <div class="code-example">
+// 使用 Promise
+fs.readFile('data.txt')
+  .then(content => {
+    console.log('文件内容:', content);
+  })
+  .catch(error => {
+    console.error('读取失败:', error);
+  });
+
+// 使用 async/await
+async function readData() {
+  try {
+    const content = await fs.readFile('data.txt');
+    console.log('文件内容:', content);
+  } catch (error) {
+    console.error('读取失败:', error);
+  }
+}
+            </div>
+        </div>
+    </div>
+
+    <div class="api-method">
+        <div class="method-header">
+            <span class="method-signature">fs.existsSync(path: string): boolean</span>
+            <div class="method-badges">
+                <span class="badge badge-sync">同步</span>
+            </div>
+        </div>
+        <div class="method-content">
+            <div class="method-description">检查文件或目录是否存在。</div>
+            
+            <div class="code-example">
+// 检查文件是否存在
+if (fs.existsSync('config.json')) {
+  console.log('配置文件存在');
+  const config = JSON.parse(fs.readFileSync('config.json'));
+} else {
+  console.log('配置文件不存在，使用默认配置');
+  const defaultConfig = { port: 3000, debug: false };
+  fs.writeFileSync('config.json', JSON.stringify(defaultConfig, null, 2));
+}
+
+// 检查目录是否存在
+if (!fs.existsSync('logs')) {
+  fs.mkdirSync('logs');
+  console.log('创建日志目录');
+}
+            </div>
+        </div>
+    </div>
+
+    <div class="api-method">
+        <div class="method-header">
+            <span class="method-signature">fs.mkdirSync(path: string, options?: {recursive?: boolean}): void</span>
+            <div class="method-badges">
+                <span class="badge badge-sync">同步</span>
+            </div>
+        </div>
+        <div class="method-content">
+            <div class="method-description">创建目录。</div>
+            
+            <div class="code-example">
+// 创建单级目录
+fs.mkdirSync('logs');
+
+// 递归创建多级目录
+fs.mkdirSync('data/cache/temp', { recursive: true });
+
+// 创建项目结构
+const dirs = ['src', 'dist', 'logs', 'config'];
+dirs.forEach(dir => {
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir);
+    console.log(`创建目录: ${dir}`);
+  }
+});
+            </div>
+        </div>
+    </div>
+</section>

@@ -5,9 +5,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"sync"
-
 	"sw_runtime/internal/builtins"
+	"sync"
 
 	"github.com/dop251/goja"
 )

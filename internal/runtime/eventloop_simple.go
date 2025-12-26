@@ -1,8 +1,13 @@
 package runtime
 
 import (
+	"os"
+	"os/signal"
+	"sw_runtime/internal/builtins"
 	"sw_runtime/internal/pool"
 	"sync"
+	"sync/atomic"
+	"syscall"
 	"time"
 
 	"github.com/dop251/goja"
@@ -10,12 +15,15 @@ import (
 
 // SimpleEventLoop 简化的事件循环实现
 type SimpleEventLoop struct {
-	vm        *goja.Runtime
-	timers    map[int]*time.Timer
-	intervals map[int]*time.Ticker
-	timerID   int
-	mu        sync.Mutex
-	running   bool
+	vm           *goja.Runtime
+	timers       map[int]*time.Timer
+	intervals    map[int]*time.Ticker
+	timerID      int
+	mu           sync.Mutex
+	running      bool
+	activeJobs   int32         // 活跃的异步任务计数
+	stopChan     chan struct{} // 停止信号通道
+	hasLongLived bool          // 是否有长期运行的任务（如 HTTP 服务器）
 }
 
 // NewSimpleEventLoop 创建简化的事件循环
@@ -24,6 +32,7 @@ func NewSimpleEventLoop(vm *goja.Runtime) *SimpleEventLoop {
 		vm:        vm,
 		timers:    make(map[int]*time.Timer),
 		intervals: make(map[int]*time.Ticker),
+		stopChan:  make(chan struct{}),
 	}
 }
 
@@ -32,10 +41,103 @@ func (el *SimpleEventLoop) Start() {
 	el.running = true
 }
 
-// WaitAndProcess 等待并处理所有任务（简化版）
+// Stop 停止事件循环
+func (el *SimpleEventLoop) Stop() {
+	el.mu.Lock()
+	defer el.mu.Unlock()
+
+	for id, timer := range el.timers {
+		timer.Stop()
+		delete(el.timers, id)
+	}
+
+	for id, ticker := range el.intervals {
+		ticker.Stop()
+		delete(el.intervals, id)
+	}
+
+	el.running = false
+
+	// 发送停止信号
+	select {
+	case el.stopChan <- struct{}{}:
+	default:
+	}
+}
+
+// AddJob 增加活跃任务计数
+func (el *SimpleEventLoop) AddJob() {
+	atomic.AddInt32(&el.activeJobs, 1)
+}
+
+// DoneJob 减少活跃任务计数
+func (el *SimpleEventLoop) DoneJob() {
+	atomic.AddInt32(&el.activeJobs, -1)
+}
+
+// SetLongLived 标记有长期运行的任务
+func (el *SimpleEventLoop) SetLongLived() {
+	el.hasLongLived = true
+}
+
+// WaitAndProcess 等待并处理所有任务
 func (el *SimpleEventLoop) WaitAndProcess() {
-	// 简单等待一段时间让异步任务完成
-	time.Sleep(10 * time.Millisecond)
+	// 设置信号处理
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+
+	// 给异步任务一些启动时间
+	time.Sleep(50 * time.Millisecond)
+
+	for el.running {
+		select {
+		case <-sigChan:
+			// 收到终止信号，优雅退出
+			el.Stop()
+			return
+		case <-el.stopChan:
+			// 收到停止信号
+			return
+		default:
+			el.mu.Lock()
+			hasTimers := len(el.timers) > 0
+			hasIntervals := len(el.intervals) > 0
+			el.mu.Unlock()
+
+			activeJobs := atomic.LoadInt32(&el.activeJobs)
+
+			// 检查是否有 HTTP 服务器在运行
+			hasHTTPServer := builtins.IsHTTPServerRunning()
+
+			// 如果有长期运行的任务（如 HTTP 服务器），持续运行
+			if el.hasLongLived || hasHTTPServer {
+				time.Sleep(100 * time.Millisecond)
+				continue
+			}
+
+			// 如果有活跃的定时器、间隔器或异步任务，继续等待
+			if hasTimers || hasIntervals || activeJobs > 0 {
+				time.Sleep(10 * time.Millisecond)
+				continue
+			}
+
+			// 没有任何活跃任务，再等待一小段时间确认
+			time.Sleep(50 * time.Millisecond)
+
+			// 再次检查
+			el.mu.Lock()
+			hasTimers = len(el.timers) > 0
+			hasIntervals = len(el.intervals) > 0
+			el.mu.Unlock()
+			activeJobs = atomic.LoadInt32(&el.activeJobs)
+			hasHTTPServer = builtins.IsHTTPServerRunning()
+
+			if !hasTimers && !hasIntervals && activeJobs == 0 && !el.hasLongLived && !hasHTTPServer {
+				// 确实没有任务了，退出
+				return
+			}
+		}
+	}
 }
 
 // SetTimeout 实现 setTimeout
@@ -186,22 +288,4 @@ func (el *SimpleEventLoop) ClearInterval(call goja.FunctionCall) goja.Value {
 	}
 
 	return goja.Undefined()
-}
-
-// Stop 停止事件循环
-func (el *SimpleEventLoop) Stop() {
-	el.mu.Lock()
-	defer el.mu.Unlock()
-
-	for id, timer := range el.timers {
-		timer.Stop()
-		delete(el.timers, id)
-	}
-
-	for id, ticker := range el.intervals {
-		ticker.Stop()
-		delete(el.intervals, id)
-	}
-
-	el.running = false
 }

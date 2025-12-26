@@ -1,0 +1,105 @@
+<section id="modules" class="content-section">
+    <h2 class="section-title">模块系统</h2>
+    
+    <div class="module-intro">
+        <h3>模块加载机制</h3>
+        <p>SW Runtime 提供了完整的模块系统，支持 CommonJS 和 ES6 模块语法，具有智能的路径解析和模块缓存机制。</p>
+    </div>
+
+    <div class="api-method" id="require">
+        <div class="method-header">
+            <span class="method-signature">require(id: string): any</span>
+            <div class="method-badges">
+                <span class="badge badge-sync">同步</span>
+            </div>
+        </div>
+        <div class="method-content">
+            <div class="method-description">
+                CommonJS 风格的模块加载函数，同步加载指定的模块。
+            </div>
+            
+            <div class="params-section">
+                <div class="section-subtitle">参数</div>
+                <div class="param-item">
+                    <div class="param-header">
+                        <span class="param-name">id</span>
+                        <span class="param-type">string</span>
+                        <span class="param-required">必需</span>
+                    </div>
+                    <div class="param-description">模块标识符，可以是相对路径、绝对路径或内置模块名</div>
+                </div>
+            </div>
+
+            <div class="returns-section">
+                <div class="section-subtitle">返回值</div>
+                <div class="return-type">any - 模块导出的内容</div>
+            </div>
+
+            <div class="code-example">
+// 加载内置模块
+const fs = require('fs');
+const crypto = require('crypto');
+
+// 加载相对路径模块
+const utils = require('./utils.js');
+const config = require('../config.json');
+
+// 加载 TypeScript 模块
+const service = require('./service.ts');
+            </div>
+        </div>
+    </div>
+
+    <div class="api-method" id="import">
+        <div class="method-header">
+            <span class="method-signature">import(id: string): Promise&lt;any&gt;</span>
+            <div class="method-badges">
+                <span class="badge badge-async">异步</span>
+                <span class="badge badge-promise">Promise</span>
+            </div>
+        </div>
+        <div class="method-content">
+            <div class="method-description">
+                ES6 风格的动态模块导入函数，异步加载指定的模块。
+            </div>
+            
+            <div class="params-section">
+                <div class="section-subtitle">参数</div>
+                <div class="param-item">
+                    <div class="param-header">
+                        <span class="param-name">id</span>
+                        <span class="param-type">string</span>
+                        <span class="param-required">必需</span>
+                    </div>
+                    <div class="param-description">模块标识符，可以是相对路径、绝对路径或内置模块名</div>
+                </div>
+            </div>
+
+            <div class="returns-section">
+                <div class="section-subtitle">返回值</div>
+                <div class="return-type">Promise&lt;any&gt; - 包含模块导出内容的 Promise</div>
+            </div>
+
+            <div class="code-example">
+// 动态导入模块
+import('./module.js')
+  .then(module => {
+    console.log('模块加载成功:', module);
+  })
+  .catch(error => {
+    console.error('模块加载失败:', error);
+  });
+
+// 使用 async/await
+async function loadModule() {
+  try {
+    const module = await import('./service.ts');
+    return module;
+  } catch (error) {
+    console.error('加载失败:', error);
+  }
+}
+            </div>
+        </div>
+    </div>
+</section>

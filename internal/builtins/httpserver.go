@@ -8,10 +8,19 @@ import (
 	"net/http"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/dop251/goja"
 )
+
+// 全局变量，标记是否有 HTTP 服务器在运行
+var httpServerRunning int32
+
+// IsHTTPServerRunning 检查是否有 HTTP 服务器在运行
+func IsHTTPServerRunning() bool {
+	return atomic.LoadInt32(&httpServerRunning) > 0
+}
 
 // HTTPServerModule HTTP 服务器模块
 type HTTPServerModule struct {
@@ -227,6 +236,9 @@ func (h *HTTPServerModule) createListenHandler(server *HTTPServer) func(goja.Fun
 
 		promise, resolve, reject := h.vm.NewPromise()
 
+		// 标记有 HTTP 服务器在运行
+		atomic.AddInt32(&httpServerRunning, 1)
+
 		go func() {
 			server.server = &http.Server{
 				Addr:    port,
@@ -252,6 +264,7 @@ func (h *HTTPServerModule) createListenHandler(server *HTTPServer) func(goja.Fun
 
 			// 启动服务器
 			if err := server.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+				atomic.AddInt32(&httpServerRunning, -1)
 				reject(h.vm.NewGoError(err))
 			}
 		}()
@@ -303,9 +316,15 @@ func (h *HTTPServerModule) createHTTPHandler(server *HTTPServer, method, path st
 			return
 		}
 
+		// 使用 ResponseWriter 包装器来捕获响应
+		rw := &responseWriter{
+			ResponseWriter: w,
+			statusCode:     200,
+		}
+
 		// 创建请求对象
 		reqObj := h.createRequestObject(r)
-		resObj := h.createResponseObject(w)
+		resObj := h.createResponseObjectWithWrapper(rw, r)
 
 		// 执行中间件
 		middlewareIndex := 0
@@ -318,7 +337,9 @@ func (h *HTTPServerModule) createHTTPHandler(server *HTTPServer, method, path st
 					_, err := fn(goja.Undefined(), reqObj, resObj)
 					if err != nil {
 						fmt.Printf("DEBUG: Handler error: %v\n", err)
-						http.Error(w, "Handler error: "+err.Error(), http.StatusInternalServerError)
+						if !rw.written {
+							http.Error(w, "Handler error: "+err.Error(), http.StatusInternalServerError)
+						}
 						return
 					}
 					fmt.Printf("DEBUG: Handler executed successfully\n")
@@ -337,14 +358,30 @@ func (h *HTTPServerModule) createHTTPHandler(server *HTTPServer, method, path st
 				_, err := fn(goja.Undefined(), reqObj, resObj, nextFunc)
 				if err != nil {
 					fmt.Printf("DEBUG: Middleware error: %v\n", err)
-					http.Error(w, "Middleware error", http.StatusInternalServerError)
+					if !rw.written {
+						http.Error(w, "Middleware error", http.StatusInternalServerError)
+					}
 					return
 				}
 			}
 		}
 
 		executeNext()
+
+		// 确保响应被写入
+		if !rw.written && len(rw.body) > 0 {
+			w.WriteHeader(rw.statusCode)
+			w.Write(rw.body)
+		}
 	}
+}
+
+// responseWriter 包装器
+type responseWriter struct {
+	http.ResponseWriter
+	statusCode int
+	body       []byte
+	written    bool
 }
 
 // createRequestObject 创建请求对象
@@ -403,14 +440,20 @@ func (h *HTTPServerModule) createRequestObject(r *http.Request) goja.Value {
 }
 
 // createResponseObject 创建响应对象
-func (h *HTTPServerModule) createResponseObject(w http.ResponseWriter) goja.Value {
+func (h *HTTPServerModule) createResponseObject(w http.ResponseWriter, r *http.Request) goja.Value {
+	return h.createResponseObjectWithWrapper(&responseWriter{ResponseWriter: w, statusCode: 200}, r)
+}
+
+// createResponseObjectWithWrapper 使用包装器创建响应对象
+func (h *HTTPServerModule) createResponseObjectWithWrapper(rw *responseWriter, r *http.Request) goja.Value {
 	obj := h.vm.NewObject()
+	w := rw.ResponseWriter
 
 	// 设置状态码
 	obj.Set("status", func(call goja.FunctionCall) goja.Value {
 		if len(call.Arguments) > 0 {
 			if code, ok := call.Arguments[0].Export().(int64); ok {
-				w.WriteHeader(int(code))
+				rw.statusCode = int(code)
 			}
 		}
 		return obj
@@ -430,8 +473,12 @@ func (h *HTTPServerModule) createResponseObject(w http.ResponseWriter) goja.Valu
 	obj.Set("send", func(call goja.FunctionCall) goja.Value {
 		if len(call.Arguments) > 0 {
 			data := call.Arguments[0].String()
-			w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+			if w.Header().Get("Content-Type") == "" {
+				w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+			}
+			w.WriteHeader(rw.statusCode)
 			w.Write([]byte(data))
+			rw.written = true
 		}
 		return obj
 	})
@@ -440,11 +487,19 @@ func (h *HTTPServerModule) createResponseObject(w http.ResponseWriter) goja.Valu
 	obj.Set("json", func(call goja.FunctionCall) goja.Value {
 		if len(call.Arguments) > 0 {
 			data := call.Arguments[0].Export()
+			fmt.Printf("DEBUG: json() called with data: %v\n", data)
 			jsonData, err := json.Marshal(data)
 			if err == nil {
 				w.Header().Set("Content-Type", "application/json; charset=utf-8")
-				w.Write(jsonData)
+				w.WriteHeader(rw.statusCode)
+				n, writeErr := w.Write(jsonData)
+				rw.written = true
+				fmt.Printf("DEBUG: json() wrote %d bytes, error: %v\n", n, writeErr)
+			} else {
+				fmt.Printf("DEBUG: json() marshal error: %v\n", err)
 			}
+		} else {
+			fmt.Printf("DEBUG: json() called with no arguments\n")
 		}
 		return obj
 	})
@@ -453,8 +508,12 @@ func (h *HTTPServerModule) createResponseObject(w http.ResponseWriter) goja.Valu
 	obj.Set("html", func(call goja.FunctionCall) goja.Value {
 		if len(call.Arguments) > 0 {
 			data := call.Arguments[0].String()
+			fmt.Printf("DEBUG: html() called with %d bytes\n", len(data))
 			w.Header().Set("Content-Type", "text/html; charset=utf-8")
-			w.Write([]byte(data))
+			w.WriteHeader(rw.statusCode)
+			n, err := w.Write([]byte(data))
+			rw.written = true
+			fmt.Printf("DEBUG: html() wrote %d bytes, error: %v\n", n, err)
 		}
 		return obj
 	})
@@ -469,7 +528,8 @@ func (h *HTTPServerModule) createResponseObject(w http.ResponseWriter) goja.Valu
 					code = int(c)
 				}
 			}
-			http.Redirect(w, nil, url, code)
+			http.Redirect(w, r, url, code)
+			rw.written = true
 		}
 		return obj
 	})

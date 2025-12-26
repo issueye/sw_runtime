@@ -1,0 +1,45 @@
+<section id="overview" class="content-section active">
+    <h2 class="section-title">运行时概述</h2>
+    
+    <div class="module-intro">
+        <h3>关于 SW Runtime</h3>
+        <p>SW Runtime 是一个基于 Go 和 goja 的高性能 JavaScript/TypeScript 运行时，提供了完整的模块系统和丰富的内置功能模块，专为企业级应用设计。</p>
+    </div>
+
+    <div class="api-method">
+        <div class="method-header">
+            <span class="method-signature">核心特性</span>
+        </div>
+        <div class="method-content">
+            <div class="method-description">
+                SW Runtime 提供以下核心特性：
+            </div>
+            <ul style="margin: 15px 0; padding-left: 25px; color: #555;">
+                <li><strong>模块系统</strong>: 支持 CommonJS require() 和 ES6 动态 import()</li>
+                <li><strong>TypeScript 支持</strong>: 自动编译 .ts 文件，无需额外配置</li>
+                <li><strong>异步支持</strong>: 完整的 Promise 和事件循环支持</li>
+                <li><strong>内置模块</strong>: 加密、压缩、文件系统、HTTP、数据库等</li>
+                <li><strong>高性能</strong>: 基于 Go 的高并发和低内存占用</li>
+                <li><strong>跨平台</strong>: 支持 Windows、Linux、macOS</li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="api-method">
+        <div class="method-header">
+            <span class="method-signature">支持的文件类型</span>
+        </div>
+        <div class="method-content">
+            <div class="code-example">
+// JavaScript 文件
+const utils = require('./utils.js');
+
+// TypeScript 文件（自动编译）
+const service = require('./service.ts');
+
+// JSON 配置文件
+const config = require('./config.json');
+            </div>
+        </div>
+    </div>
+</section>

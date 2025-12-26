@@ -1,0 +1,152 @@
+<section id="crypto" class="content-section">
+    <h2 class="section-title">加密模块 (crypto)</h2>
+    
+    <div class="module-intro">
+        <h3>crypto</h3>
+        <p>提供完整的加密功能，包括哈希、编解码、对称加密和随机数生成。</p>
+    </div>
+
+    <div class="api-method">
+        <div class="method-header">
+            <span class="method-signature">crypto.sha256(data: string): string</span>
+            <div class="method-badges">
+                <span class="badge badge-sync">同步</span>
+            </div>
+        </div>
+        <div class="method-content">
+            <div class="method-description">计算字符串的 SHA256 哈希值。</div>
+            
+            <div class="params-section">
+                <div class="section-subtitle">参数</div>
+                <div class="param-item">
+                    <div class="param-header">
+                        <span class="param-name">data</span>
+                        <span class="param-type">string</span>
+                        <span class="param-required">必需</span>
+                    </div>
+                    <div class="param-description">要计算哈希的字符串</div>
+                </div>
+            </div>
+
+            <div class="returns-section">
+                <div class="section-subtitle">返回值</div>
+                <div class="return-type">string - 十六进制格式的 SHA256 哈希值</div>
+            </div>
+
+            <div class="code-example">
+const crypto = require('crypto');
+
+const hash = crypto.sha256('hello world');
+console.log(hash); 
+// 输出: b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9
+
+// 其他哈希函数
+const md5Hash = crypto.md5('hello');
+const sha1Hash = crypto.sha1('hello');
+const sha512Hash = crypto.sha512('hello');
+            </div>
+        </div>
+    </div>
+
+    <div class="api-method">
+        <div class="method-header">
+            <span class="method-signature">crypto.base64Encode(data: string): string</span>
+            <div class="method-badges">
+                <span class="badge badge-sync">同步</span>
+            </div>
+        </div>
+        <div class="method-content">
+            <div class="method-description">将字符串编码为 Base64 格式。</div>
+            
+            <div class="code-example">
+const encoded = crypto.base64Encode('hello world');
+console.log(encoded); // aGVsbG8gd29ybGQ=
+
+const decoded = crypto.base64Decode(encoded);
+console.log(decoded); // hello world
+            </div>
+        </div>
+    </div>
+
+    <div class="api-method">
+        <div class="method-header">
+            <span class="method-signature">crypto.aesEncrypt(data: string, key: string): string</span>
+            <div class="method-badges">
+                <span class="badge badge-sync">同步</span>
+            </div>
+        </div>
+        <div class="method-content">
+            <div class="method-description">使用 AES-256-GCM 算法加密数据。</div>
+            
+            <div class="params-section">
+                <div class="section-subtitle">参数</div>
+                <div class="param-item">
+                    <div class="param-header">
+                        <span class="param-name">data</span>
+                        <span class="param-type">string</span>
+                        <span class="param-required">必需</span>
+                    </div>
+                    <div class="param-description">要加密的数据</div>
+                </div>
+                <div class="param-item">
+                    <div class="param-header">
+                        <span class="param-name">key</span>
+                        <span class="param-type">string</span>
+                        <span class="param-required">必需</span>
+                    </div>
+                    <div class="param-description">加密密钥</div>
+                </div>
+            </div>
+
+            <div class="code-example">
+const secretData = '这是机密信息';
+const secretKey = 'my-secret-key-2023';
+
+// 加密数据
+const encrypted = crypto.aesEncrypt(secretData, secretKey);
+console.log('加密后:', encrypted);
+
+// 解密数据
+const decrypted = crypto.aesDecrypt(encrypted, secretKey);
+console.log('解密后:', decrypted); // 这是机密信息
+            </div>
+        </div>
+    </div>
+
+    <div class="api-method">
+        <div class="method-header">
+            <span class="method-signature">crypto.randomBytes(size?: number): string</span>
+            <div class="method-badges">
+                <span class="badge badge-sync">同步</span>
+            </div>
+        </div>
+        <div class="method-content">
+            <div class="method-description">生成指定长度的随机字节序列。</div>
+            
+            <div class="params-section">
+                <div class="section-subtitle">参数</div>
+                <div class="param-item">
+                    <div class="param-header">
+                        <span class="param-name">size</span>
+                        <span class="param-type">number</span>
+                        <span class="param-optional">可选</span>
+                    </div>
+                    <div class="param-description">字节长度，默认为 16</div>
+                </div>
+            </div>
+
+            <div class="code-example">
+// 生成默认长度的随机字节
+const random16 = crypto.randomBytes();
+console.log('16字节随机数:', random16);
+
+// 生成32字节的随机字节
+const random32 = crypto.randomBytes(32);
+console.log('32字节随机数:', random32);
+
+// 用于生成会话ID
+const sessionId = crypto.randomBytes(24);
+            </div>
+        </div>
+    </div>
+</section>

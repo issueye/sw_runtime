@@ -1,0 +1,465 @@
+<section id="examples" class="content-section">
+    <h2 class="section-title">完整示例</h2>
+    
+    <div class="module-intro">
+        <h3>综合应用示例</h3>
+        <p>以下示例展示了如何在实际项目中使用 SW Runtime 的各种功能模块，包括数据处理流水线、缓存系统、文件操作和网络请求等。</p>
+    </div>
+
+    <!-- 综合功能演示 -->
+    <div class="api-method">
+        <div class="method-header">
+            <span class="method-signature">综合功能演示</span>
+        </div>
+        <div class="method-content">
+            <div class="method-description">
+                这个示例展示了一个完整的数据处理流水线，包括 API 调用、数据加密、压缩存储和缓存系统。
+            </div>
+            <div class="code-example">
+// comprehensive-demo.ts - 综合功能演示
+
+// 导入所有模块
+const http = require('http');
+const redis = require('redis');
+const crypto = require('crypto');
+const compression = require('compression');
+const fs = require('fs');
+const path = require('path');
+
+// 数据处理流水线
+async function dataProcessingPipeline() {
+    try {
+        // 1. 从 API 获取数据
+        const response = await http.get('https://jsonplaceholder.typicode.com/posts/1');
+        const apiData = response.data;
+        console.log('API 数据获取成功:', apiData.title);
+        
+        // 2. 数据加密
+        const jsonData = JSON.stringify(apiData);
+        const encryptionKey = 'my-secret-key-32-bytes-long!!!';
+        const encryptedData = crypto.aesEncrypt(jsonData, encryptionKey);
+        
+        // 3. 数据压缩
+        const compressedData = compression.gzipCompress(encryptedData);
+        console.log('压缩率:', 
+            ((1 - compressedData.length / encryptedData.length) * 100).toFixed(2) + '%');
+        
+        // 4. 存储到文件
+        const fileName = 'processed_data.bin';
+        fs.writeFileSync(fileName, compressedData);
+        
+        // 5. 反向处理 - 读取和解密
+        const readData = fs.readFileSync(fileName, 'utf8');
+        const decompressedData = compression.gzipDecompress(readData);
+        const decryptedData = crypto.aesDecrypt(decompressedData, encryptionKey);
+        const originalData = JSON.parse(decryptedData);
+        
+        console.log('数据恢复成功:', originalData.title);
+        
+        // 清理文件
+        fs.unlinkSync(fileName);
+        
+    } catch (error) {
+        console.error('数据处理流水线错误:', error.message);
+    }
+}
+
+// 启动演示
+dataProcessingPipeline();
+            </div>
+        </div>
+    </div>
+
+    <!-- 缓存系统示例 -->
+    <div class="api-method">
+        <div class="method-header">
+            <span class="method-signature">Redis 缓存系统</span>
+        </div>
+        <div class="method-content">
+            <div class="method-description">
+                使用 Redis 实现高性能数据缓存，提高应用响应速度。
+            </div>
+            <div class="code-example">
+// 缓存系统演示
+async function cacheSystemDemo() {
+    try {
+        // 创建 Redis 连接
+        const client = redis.createClient({
+            host: 'localhost',
+            port: 6379
+        });
+        
+        // 模拟数据获取函数
+        async function fetchUserData(userId) {
+            const cacheKey = `user:${userId}`;
+            
+            // 先检查缓存
+            const cached = await client.getJSON(cacheKey);
+            if (cached) {
+                console.log('从缓存获取用户数据:', cached.name);
+                return cached;
+            }
+            
+            // 缓存未命中，从 API 获取
+            console.log('缓存未命中，从 API 获取数据...');
+            const response = await http.get(`https://jsonplaceholder.typicode.com/users/${userId}`);
+            const userData = response.data;
+            
+            // 存储到缓存，5分钟过期
+            await client.setJSON(cacheKey, userData, 300);
+            console.log('数据已缓存:', userData.name);
+            
+            return userData;
+        }
+        
+        // 测试缓存系统
+        const user1 = await fetchUserData(1);
+        const user1Cached = await fetchUserData(1); // 应该从缓存获取
+        
+    } catch (error) {
+        console.log('Redis 不可用:', error.message);
+    }
+}
+            </div>
+        </div>
+    </div>
+
+    <!-- ES6 模块示例 -->
+    <div class="api-method">
+        <div class="method-header">
+            <span class="method-signature">ES6 模块和计算器应用</span>
+        </div>
+        <div class="method-content">
+            <div class="method-description">
+                展示如何使用 ES6 import/export 语法创建模块化应用。
+            </div>
+            <div class="code-example">
+// calculator-app.ts - 使用 ES6 import 语法的应用
+import { add, multiply, PI, Calculator } from './es6-math';
+import mathUtils from './es6-math';
+
+// 使用命名导入
+console.log('Using named imports:');
+console.log('add(5, 3):', add(5, 3));
+console.log('multiply(4, 7):', multiply(4, 7));
+console.log('PI:', PI);
+
+// 使用默认导入
+console.log('Using default import:');
+console.log('mathUtils.add(10, 20):', mathUtils.add(10, 20));
+console.log('mathUtils.PI:', mathUtils.PI);
+
+// 使用类
+console.log('Using Calculator class:');
+const calc = new Calculator();
+console.log('calc.add(15, 25):', calc.add(15, 25));
+console.log('calc.multiply(6, 8):', calc.multiply(6, 8));
+console.log('History:', calc.getHistory());
+
+// 导出功能供其他模块使用
+export function runCalculations() {
+    console.log('Running calculations...');
+    const results = {
+        sum: add(100, 200),
+        product: multiply(12, 12),
+        pi: PI
+    };
+    console.log('Results:', results);
+}
+
+export { Calculator } from './es6-math';
+export default { runCalculations };
+            </div>
+        </div>
+    </div>
+
+    <!-- 文件处理示例 -->
+    <div class="api-method">
+        <div class="method-header">
+            <span class="method-signature">文件处理和路径操作</span>
+        </div>
+        <div class="method-content">
+            <div class="method-description">
+                演示文件系统操作、数据压缩和加密的综合应用。
+            </div>
+            <div class="code-example">
+// 文件处理演示
+async function fileProcessingDemo() {
+    try {
+        // 创建测试目录结构
+        const testDir = 'test_workspace';
+        const dataDir = path.join(testDir, 'data');
+        const outputDir = path.join(testDir, 'output');
+        
+        console.log('创建目录结构...');
+        fs.mkdirSync(testDir, { recursive: true });
+        fs.mkdirSync(dataDir, { recursive: true });
+        fs.mkdirSync(outputDir, { recursive: true });
+        
+        // 创建测试数据
+        const testData = {
+            timestamp: new Date().toISOString(),
+            data: Array.from({length: 100}, (_, i) => ({
+                id: i + 1,
+                value: Math.random() * 1000,
+                category: ['A', 'B', 'C'][i % 3]
+            }))
+        };
+        
+        // 保存原始数据
+        const originalFile = path.join(dataDir, 'original.json');
+        fs.writeFileSync(originalFile, JSON.stringify(testData, null, 2));
+        
+        // 压缩数据
+        const compressedData = compression.gzipCompress(JSON.stringify(testData));
+        const compressedFile = path.join(outputDir, 'compressed.gz');
+        fs.writeFileSync(compressedFile, compressedData);
+        
+        // 加密数据
+        const encryptedData = crypto.aesEncrypt(JSON.stringify(testData), 'encryption-key-32-bytes-long!');
+        const encryptedFile = path.join(outputDir, 'encrypted.bin');
+        fs.writeFileSync(encryptedFile, encryptedData);
+        
+        // 文件信息统计
+        const originalStat = fs.statSync(originalFile);
+        const compressedStat = fs.statSync(compressedFile);
+        const encryptedStat = fs.statSync(encryptedFile);
+        
+        console.log('文件大小对比:');
+        console.log('原始文件:', originalStat.size, '字节');
+        console.log('压缩文件:', compressedStat.size, '字节', 
+            `(${((1 - compressedStat.size / originalStat.size) * 100).toFixed(1)}% 压缩)`);
+        console.log('加密文件:', encryptedStat.size, '字节');
+        
+        // 清理测试文件
+        fs.rmdirSync(testDir, { recursive: true });
+        console.log('测试文件已清理');
+        
+    } catch (error) {
+        console.error('文件处理错误:', error.message);
+    }
+}
+            </div>
+        </div>
+    </div>
+
+    <!-- HTTP 服务器示例 -->
+    <div class="api-method">
+        <div class="method-header">
+            <span class="method-signature">HTTP 服务器应用</span>
+        </div>
+        <div class="method-content">
+            <div class="method-description">
+                创建一个完整的 HTTP 服务器，支持静态文件服务、API 路由和中间件。
+            </div>
+            <div class="code-example">
+// httpserver-demo.ts - HTTP 服务器演示
+const httpserver = require('httpserver');
+const fs = require('fs');
+const path = require('path');
+const crypto = require('crypto');
+
+// 创建服务器实例
+const server = httpserver.createServer();
+
+// 中间件：请求日志
+server.use((req, res, next) => {
+    console.log(`${new Date().toISOString()} ${req.method} ${req.url}`);
+    next();
+});
+
+// 中间件：CORS 支持
+server.use((req, res, next) => {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    next();
+});
+
+// API 路由：获取用户信息
+server.get('/api/users/:id', (req, res) => {
+    const userId = req.params.id;
+    const userData = {
+        id: userId,
+        name: `User ${userId}`,
+        email: `user${userId}@example.com`,
+        timestamp: new Date().toISOString()
+    };
+    res.json(userData);
+});
+
+// API 路由：创建用户
+server.post('/api/users', (req, res) => {
+    const userData = req.body;
+    userData.id = crypto.randomUUID();
+    userData.created = new Date().toISOString();
+    
+    console.log('创建用户:', userData);
+    res.status(201).json(userData);
+});
+
+// 静态文件服务
+server.static('/static', './public');
+
+// 健康检查端点
+server.get('/health', (req, res) => {
+    res.json({
+        status: 'healthy',
+        timestamp: new Date().toISOString(),
+        uptime: process.uptime()
+    });
+});
+
+// 启动服务器
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => {
+    console.log(`服务器运行在 http://localhost:${PORT}`);
+    console.log('可用端点:');
+    console.log('  GET  /health - 健康检查');
+    console.log('  GET  /api/users/:id - 获取用户信息');
+    console.log('  POST /api/users - 创建用户');
+    console.log('  GET  /static/* - 静态文件服务');
+});
+            </div>
+        </div>
+    </div>
+
+    <!-- 配置文件示例 -->
+    <div class="api-method">
+        <div class="method-header">
+            <span class="method-signature">配置文件和环境管理</span>
+        </div>
+        <div class="method-content">
+            <div class="method-description">
+                展示如何使用 JSON 配置文件和环境变量管理应用配置。
+            </div>
+            <div class="code-example">
+// config.json - 应用配置文件
+{
+    "name": "sw_runtime_app",
+    "version": "1.0.0",
+    "description": "JavaScript/TypeScript runtime application",
+    "server": {
+        "port": 3000,
+        "host": "localhost",
+        "timeout": 30000
+    },
+    "database": {
+        "redis": {
+            "host": "localhost",
+            "port": 6379,
+            "password": null,
+            "db": 0
+        },
+        "sqlite": {
+            "filename": "app.db",
+            "memory": false
+        }
+    },
+    "security": {
+        "encryption": {
+            "algorithm": "aes-256-gcm",
+            "keyLength": 32
+        },
+        "cors": {
+            "enabled": true,
+            "origins": ["*"]
+        }
+    },
+    "features": {
+        "compression": true,
+        "caching": true,
+        "logging": true
+    },
+    "development": {
+        "debug": true,
+        "hotReload": false
+    }
+}
+
+// 使用配置文件
+const config = require('./config.json');
+
+console.log('应用名称:', config.name);
+console.log('服务器端口:', config.server.port);
+console.log('启用的功能:', config.features);
+
+// 环境变量覆盖
+const PORT = process.env.PORT || config.server.port;
+const DEBUG = process.env.DEBUG === 'true' || config.development.debug;
+
+if (DEBUG) {
+    console.log('调试模式已启用');
+    console.log('完整配置:', JSON.stringify(config, null, 2));
+}
+            </div>
+        </div>
+    </div>
+
+    <!-- 最佳实践 -->
+    <div class="api-method">
+        <div class="method-header">
+            <span class="method-signature">最佳实践和项目结构</span>
+        </div>
+        <div class="method-content">
+            <div class="method-description">
+                推荐的项目结构和开发最佳实践。
+            </div>
+            <div class="code-example">
+// 推荐的项目结构
+project/
+├── src/
+│   ├── controllers/     # 控制器
+│   ├── services/        # 业务逻辑
+│   ├── models/          # 数据模型
+│   ├── middleware/      # 中间件
+│   ├── utils/           # 工具函数
+│   └── app.ts           # 应用入口
+├── config/
+│   ├── development.json # 开发环境配置
+│   ├── production.json  # 生产环境配置
+│   └── test.json        # 测试环境配置
+├── public/              # 静态文件
+├── tests/               # 测试文件
+├── docs/                # 文档
+├── package.json         # 项目配置
+└── README.md            # 项目说明
+
+// 模块导入最佳实践
+// 1. 使用绝对路径导入内置模块
+const fs = require('fs');
+const http = require('http');
+
+// 2. 使用相对路径导入本地模块
+const utils = require('./utils');
+const config = require('../config/app.json');
+
+// 3. ES6 模块语法
+import { createServer } from 'httpserver';
+import { encrypt, decrypt } from './crypto-utils';
+
+// 4. 错误处理
+async function safeOperation() {
+    try {
+        const result = await someAsyncOperation();
+        return result;
+    } catch (error) {
+        console.error('操作失败:', error.message);
+        throw error;
+    }
+}
+
+// 5. 资源清理
+function cleanup() {
+    // 关闭数据库连接
+    // 清理临时文件
+    // 停止定时器
+    console.log('资源清理完成');
+}
+
+process.on('SIGINT', cleanup);
+process.on('SIGTERM', cleanup);
+            </div>
+        </div>
+    </div>
+</section>

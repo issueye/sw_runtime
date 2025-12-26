@@ -1,0 +1,73 @@
+<section id="compression" class="content-section">
+    <h2 class="section-title">压缩模块 (compression)</h2>
+    
+    <div class="module-intro">
+        <h3>compression / zlib</h3>
+        <p>提供 Gzip 和 Zlib 压缩/解压功能，支持高性能数据压缩。</p>
+    </div>
+
+    <div class="api-method">
+        <div class="method-header">
+            <span class="method-signature">compression.gzipCompress(data: string): string</span>
+            <div class="method-badges">
+                <span class="badge badge-sync">同步</span>
+            </div>
+        </div>
+        <div class="method-content">
+            <div class="method-description">使用 Gzip 算法压缩数据。</div>
+            
+            <div class="params-section">
+                <div class="section-subtitle">参数</div>
+                <div class="param-item">
+                    <div class="param-header">
+                        <span class="param-name">data</span>
+                        <span class="param-type">string</span>
+                        <span class="param-required">必需</span>
+                    </div>
+                    <div class="param-description">要压缩的字符串数据</div>
+                </div>
+            </div>
+
+            <div class="returns-section">
+                <div class="section-subtitle">返回值</div>
+                <div class="return-type">string - Base64 编码的压缩数据</div>
+            </div>
+
+            <div class="code-example">
+const compression = require('compression');
+
+const originalData = '这是一段需要压缩的长文本数据，包含重复的内容，重复的内容，重复的内容...';
+
+// Gzip 压缩
+const compressed = compression.gzipCompress(originalData);
+const decompressed = compression.gzipDecompress(compressed);
+
+console.log('原始大小:', originalData.length);
+console.log('压缩后大小:', compressed.length);
+console.log('压缩比:', (compressed.length / originalData.length * 100).toFixed(2) + '%');
+console.log('解压正确:', decompressed === originalData);
+            </div>
+        </div>
+    </div>
+
+    <div class="api-method">
+        <div class="method-header">
+            <span class="method-signature">compression.zlibCompress(data: string): string</span>
+            <div class="method-badges">
+                <span class="badge badge-sync">同步</span>
+            </div>
+        </div>
+        <div class="method-content">
+            <div class="method-description">使用 Zlib 算法压缩数据。</div>
+            
+            <div class="code-example">
+// Zlib 压缩
+const zlibCompressed = compression.zlibCompress(originalData);
+const zlibDecompressed = compression.zlibDecompress(zlibCompressed);
+
+console.log('Zlib 压缩后:', zlibCompressed.length);
+console.log('Zlib 解压正确:', zlibDecompressed === originalData);
+            </div>
+        </div>
+    </div>
+</section>
