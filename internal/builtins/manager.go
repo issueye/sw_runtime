@@ -42,6 +42,8 @@ func (m *Manager) registerBuiltinModules() {
 	m.modules["sqlite"] = NewSQLiteModule(m.vm)
 	m.modules["exec"] = NewExecModule(m.vm)
 	m.modules["child_process"] = NewExecModule(m.vm) // Node.js 风格别名
+	m.modules["websocket"] = NewWebSocketModule(m.vm)
+	m.modules["ws"] = NewWebSocketModule(m.vm) // 简短别名
 }
 
 // GetModule 获取内置模块

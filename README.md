@@ -138,6 +138,7 @@ client.get('https://api.example.com/data')
 - **响应方法**: JSON、HTML、文本、重定向等响应类型
 - **文件服务**: sendFile、download 方法,自动 MIME 类型检测
 - **静态文件**: 内置静态文件服务器
+- **WebSocket**: 实时双向通信支持
 - **Promise 支持**: 异步启动和关闭
 
 ```javascript
@@ -187,11 +188,115 @@ app.get('/download', (req, res) => {
 // 静态文件服务
 app.static('./public', '/static');
 
+// WebSocket 服务器支持
+app.ws('/chat', (ws) => {
+  ws.on('message', (data) => {
+    console.log('收到消息:', data);
+    ws.send('回复: ' + data);
+  });
+  
+  ws.on('close', () => {
+    console.log('连接关闭');
+  });
+});
+
 // 启动服务器
 app.listen('3000')
   .then(result => {
     console.log('服务器启动成功:', result);
   });
+```
+
+### 🔌 WebSocket 客户端模块 (`websocket`/`ws`)
+
+- **连接管理**: 支持 ws:// 和 wss:// 协议
+- **消息发送**: 文本、JSON、二进制消息
+- **事件支持**: message、close、error 事件
+- **自动重连**: 支持自定义连接选项
+- **Promise API**: 异步连接支持
+
+```javascript
+const ws = require('websocket');
+
+// 连接到 WebSocket 服务器
+ws.connect('ws://localhost:8080/chat', {
+  timeout: 5000,  // 连接超时
+  headers: {      // 自定义请求头
+    'User-Agent': 'SW-Runtime-Client'
+  }
+}).then(client => {
+  console.log('已连接到服务器');
+  
+  // 监听消息
+  client.on('message', (data) => {
+    console.log('收到消息:', data);
+  });
+  
+  // 监听关闭事件
+  client.on('close', () => {
+    console.log('连接已关闭');
+  });
+  
+  // 监听错误事件
+  client.on('error', (err) => {
+    console.error('WebSocket 错误:', err.message);
+  });
+  
+  // 发送文本消息
+  client.send('Hello Server!');
+  
+  // 发送 JSON 消息
+  client.sendJSON({
+    type: 'greeting',
+    message: 'Hello from client!',
+    timestamp: Date.now()
+  });
+  
+  // 发送二进制消息
+  client.sendBinary(new Uint8Array([1, 2, 3, 4]));
+  
+  // 发送 ping
+  client.ping('heartbeat');
+  
+  // 检查连接状态
+  if (!client.isClosed()) {
+    console.log('连接正常');
+  }
+  
+  // 关闭连接
+  setTimeout(() => {
+    client.close();
+  }, 5000);
+  
+}).catch(err => {
+  console.error('连接失败:', err.message);
+});
+```
+
+**客户端 API 详解**:
+
+```javascript
+// connect(url, options) - 连接到服务器
+ws.connect(url, {
+  timeout: 10000,      // 连接超时（毫秒）
+  headers: {},         // 自定义 HTTP 请求头
+  protocols: []        // WebSocket 子协议
+})
+
+// 客户端对象方法
+client.send(message)           // 发送文本消息
+client.sendJSON(object)        // 发送 JSON 消息
+client.sendBinary(data)        // 发送二进制消息
+client.ping(data)              // 发送 ping 帧
+client.close(code, reason)     // 关闭连接
+client.isClosed()              // 检查连接状态
+client.on(event, handler)      // 注册事件监听器
+
+// 支持的事件
+- 'message': 收到消息
+- 'close': 连接关闭
+- 'error': 发生错误
+- 'pong': 收到 pong 响应
 ```
 
 ### 🔴 Redis 客户端模块 (`redis`)

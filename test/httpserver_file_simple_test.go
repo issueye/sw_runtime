@@ -82,7 +82,7 @@ func TestHTTPServerMIMEDetection(t *testing.T) {
 	defer runner.Close()
 
 	tmpDir := t.TempDir()
-	
+
 	// 创建不同类型的测试文件
 	files := map[string]struct {
 		content  string

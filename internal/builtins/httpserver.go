@@ -9,12 +9,14 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/dop251/goja"
+	"github.com/gorilla/websocket"
 )
 
 // 全局变量，标记是否有 HTTP 服务器在运行
@@ -39,6 +41,8 @@ type HTTPServer struct {
 	vm         *goja.Runtime
 	routes     map[string]map[string]goja.Value // method -> path -> handler
 	middleware []goja.Value
+	ws         map[string]goja.Value // WebSocket 路由
+	upgrader   websocket.Upgrader    // WebSocket 升级器
 	mutex      sync.RWMutex
 }
 
@@ -94,6 +98,14 @@ func (h *HTTPServerModule) createServer(call goja.FunctionCall) goja.Value {
 	server.routes["HEAD"] = make(map[string]goja.Value)
 	server.routes["OPTIONS"] = make(map[string]goja.Value)
 
+	// 初始化 WebSocket
+	server.ws = make(map[string]goja.Value)
+	server.upgrader = websocket.Upgrader{
+		CheckOrigin: func(r *http.Request) bool {
+			return true // 允许所有来源,生产环境应该限制
+		},
+	}
+
 	return h.createServerObject(server)
 }
 
@@ -116,6 +128,9 @@ func (h *HTTPServerModule) createServerObject(server *HTTPServer) goja.Value {
 
 	// 静态文件服务
 	obj.Set("static", h.createStaticHandler(server))
+
+	// WebSocket 路由
+	obj.Set("ws", h.createWebSocketHandler(server))
 
 	// 服务器控制
 	obj.Set("listen", h.createListenHandler(server))
@@ -629,4 +644,216 @@ func (h *HTTPServerModule) detectContentType(filePath string, content []byte) st
 	}
 
 	return "application/octet-stream"
+}
+
+// createWebSocketHandler 创建 WebSocket 路由处理器
+func (h *HTTPServerModule) createWebSocketHandler(server *HTTPServer) func(goja.FunctionCall) goja.Value {
+	return func(call goja.FunctionCall) goja.Value {
+		if len(call.Arguments) < 2 {
+			panic(h.vm.NewTypeError("ws requires path and handler"))
+		}
+
+		path := call.Arguments[0].String()
+		handler := call.Arguments[1]
+
+		if _, ok := goja.AssertFunction(handler); !ok {
+			panic(h.vm.NewTypeError("Handler must be a function"))
+		}
+
+		server.mutex.Lock()
+		server.ws[path] = handler
+		server.mutex.Unlock()
+
+		// 注册 WebSocket 路由
+		server.mux.HandleFunc(path, h.createWebSocketHTTPHandler(server, path))
+
+		return goja.Undefined()
+	}
+}
+
+// createWebSocketHTTPHandler 创建 WebSocket HTTP 处理器
+func (h *HTTPServerModule) createWebSocketHTTPHandler(server *HTTPServer, path string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		// 升级到 WebSocket
+		conn, err := server.upgrader.Upgrade(w, r, nil)
+		if err != nil {
+			fmt.Printf("WebSocket upgrade error: %v\n", err)
+			return
+		}
+
+		server.mutex.RLock()
+		handler, exists := server.ws[path]
+		server.mutex.RUnlock()
+
+		if !exists {
+			conn.Close()
+			return
+		}
+
+		// 创建 WebSocket 连接对象
+		wsObj := h.createWebSocketObject(conn)
+
+		// 调用处理器
+		if fn, ok := goja.AssertFunction(handler); ok {
+			_, err := fn(goja.Undefined(), wsObj)
+			if err != nil {
+				fmt.Printf("WebSocket handler error: %v\n", err)
+			}
+		}
+	}
+}
+
+// createWebSocketObject 创建 WebSocket 连接对象
+func (h *HTTPServerModule) createWebSocketObject(conn *websocket.Conn) goja.Value {
+	obj := h.vm.NewObject()
+
+	// 事件监听器
+	listeners := make(map[string][]goja.Value)
+	var listenersMutex sync.RWMutex
+
+	// 设置事件监听器
+	obj.Set("on", func(call goja.FunctionCall) goja.Value {
+		if len(call.Arguments) < 2 {
+			return goja.Undefined()
+		}
+
+		eventName := call.Arguments[0].String()
+		handler := call.Arguments[1]
+
+		if _, ok := goja.AssertFunction(handler); !ok {
+			return goja.Undefined()
+		}
+
+		listenersMutex.Lock()
+		listeners[eventName] = append(listeners[eventName], handler)
+		listenersMutex.Unlock()
+
+		return goja.Undefined()
+	})
+
+	// 发送消息
+	obj.Set("send", func(call goja.FunctionCall) goja.Value {
+		if len(call.Arguments) < 1 {
+			return goja.Undefined()
+		}
+
+		data := call.Arguments[0]
+		var message []byte
+		var err error
+
+		// 判断数据类型
+		if data.ExportType().Kind() == reflect.String {
+			// 文本消息
+			message = []byte(data.String())
+			err = conn.WriteMessage(websocket.TextMessage, message)
+		} else {
+			// JSON 消息
+			exported := data.Export()
+			message, err = json.Marshal(exported)
+			if err == nil {
+				err = conn.WriteMessage(websocket.TextMessage, message)
+			}
+		}
+
+		if err != nil {
+			fmt.Printf("WebSocket send error: %v\n", err)
+			return h.vm.ToValue(false)
+		}
+
+		return h.vm.ToValue(true)
+	})
+
+	// 发送 JSON
+	obj.Set("sendJSON", func(call goja.FunctionCall) goja.Value {
+		if len(call.Arguments) < 1 {
+			return goja.Undefined()
+		}
+
+		data := call.Arguments[0].Export()
+		message, err := json.Marshal(data)
+		if err != nil {
+			fmt.Printf("WebSocket JSON marshal error: %v\n", err)
+			return h.vm.ToValue(false)
+		}
+
+		err = conn.WriteMessage(websocket.TextMessage, message)
+		if err != nil {
+			fmt.Printf("WebSocket send error: %v\n", err)
+			return h.vm.ToValue(false)
+		}
+
+		return h.vm.ToValue(true)
+	})
+
+	// 关闭连接
+	obj.Set("close", func(call goja.FunctionCall) goja.Value {
+		code := websocket.CloseNormalClosure
+		reason := ""
+
+		if len(call.Arguments) > 0 {
+			if c, ok := call.Arguments[0].Export().(int64); ok {
+				code = int(c)
+			}
+		}
+
+		if len(call.Arguments) > 1 {
+			reason = call.Arguments[1].String()
+		}
+
+		message := websocket.FormatCloseMessage(code, reason)
+		conn.WriteMessage(websocket.CloseMessage, message)
+		conn.Close()
+
+		return goja.Undefined()
+	})
+
+	// 启动消息接收循环
+	go func() {
+		defer conn.Close()
+
+		for {
+			messageType, message, err := conn.ReadMessage()
+			if err != nil {
+				if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseNormalClosure) {
+					fmt.Printf("WebSocket read error: %v\n", err)
+				}
+				break
+			}
+
+			// 触发 message 事件
+			listenersMutex.RLock()
+			handlers := listeners["message"]
+			listenersMutex.RUnlock()
+
+			if len(handlers) > 0 {
+				var data interface{}
+				if messageType == websocket.TextMessage {
+					// 尝试解析为 JSON
+					if json.Unmarshal(message, &data) != nil {
+						data = string(message)
+					}
+				} else {
+					data = message
+				}
+
+				// 注意: 这里直接调用 goja 函数可能不安全
+				// 在生产环境中应该使用事件队列
+				for _, handler := range handlers {
+					if fn, ok := goja.AssertFunction(handler); ok {
+						// 使用 defer/recover 保护
+						func() {
+							defer func() {
+								if r := recover(); r != nil {
+									fmt.Printf("WebSocket handler panic: %v\n", r)
+								}
+							}()
+							fn(goja.Undefined(), h.vm.ToValue(data))
+						}()
+					}
+				}
+			}
+		}
+	}()
+
+	return obj
 }
