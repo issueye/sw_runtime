@@ -1,0 +1,426 @@
+# SW Runtime - 企业级 JavaScript/TypeScript 运行时
+
+一个基于 Go 和 goja 的高性能 JavaScript/TypeScript 运行时，支持模块导入、加解密、压缩、文件系统操作等企业级功能。
+
+## 🏗️ 架构设计
+
+### 科学的包结构
+
+```
+sw_runtime/
+├── main.go                    # 主程序入口
+├── go.mod                     # Go 模块定义
+├── internal/                  # 内部包
+│   ├── runtime/              # 运行时核心
+│   │   ├── runner.go         # 主运行器
+│   │   ├── eventloop.go      # 事件循环
+│   │   └── transpiler.go     # TypeScript 编译器
+│   ├── modules/              # 模块系统
+│   │   ├── system.go         # 模块系统核心
+│   │   └── transpiler.go     # 模块编译器
+│   └── builtins/             # 内置模块
+│       ├── manager.go        # 模块管理器
+│       ├── path.go           # 路径操作
+│       ├── fs.go             # 文件系统
+│       ├── crypto.go         # 加密功能
+│       └── compression.go    # 压缩功能
+├── examples/                  # 示例文件
+│   ├── crypto-demo.ts        # 加密功能演示
+│   ├── compression-demo.ts   # 压缩功能演示
+│   ├── fs-demo.ts           # 文件系统演示
+│   ├── http-demo.ts         # HTTP 客户端演示
+│   ├── redis-demo.ts        # Redis 客户端演示
+│   └── sqlite-demo.ts       # SQLite 数据库演示
+└── [测试文件...]
+```
+
+## ✨ 功能特性
+
+### 🔧 核心功能
+
+1. **模块系统**
+   - CommonJS 风格的 `require()` 函数
+   - ES6 动态 `import()` 函数
+   - 支持相对路径、绝对路径导入
+   - 模块缓存机制
+   - 内置模块管理
+
+2. **文件类型支持**
+   - JavaScript (`.js`) 文件
+   - TypeScript (`.ts`) 文件 - 自动编译，支持 ES6 import/export
+   - JSON (`.json`) 文件 - 直接解析
+
+3. **异步支持**
+   - 事件循环
+   - `setTimeout` / `clearTimeout`
+   - `setInterval` / `clearInterval`
+   - Promise 支持
+   - 异步模块加载
+
+### 🔐 加密模块 (`crypto`)
+
+- **哈希函数**: MD5, SHA1, SHA256, SHA512
+- **编解码**: Base64, Hex
+- **对称加密**: AES-256-GCM
+- **随机数生成**: 安全随机字节
+
+```javascript
+const crypto = require('crypto');
+
+// 哈希
+console.log(crypto.sha256('hello')); // 哈希值
+
+// Base64 编解码
+const encoded = crypto.base64Encode('hello');
+const decoded = crypto.base64Decode(encoded);
+
+// AES 加解密
+const encrypted = crypto.aesEncrypt('secret', 'key');
+const decrypted = crypto.aesDecrypt(encrypted, 'key');
+
+// 随机数
+const random = crypto.randomBytes(16);
+```
+
+### 🗜️ 压缩模块 (`compression` / `zlib`)
+
+- **Gzip 压缩/解压**
+- **Zlib 压缩/解压**
+- **高性能压缩算法**
+
+```javascript
+const compression = require('compression');
+
+// Gzip 压缩
+const compressed = compression.gzipCompress(data);
+const decompressed = compression.gzipDecompress(compressed);
+
+// Zlib 压缩
+const zlibCompressed = compression.zlibCompress(data);
+const zlibDecompressed = compression.zlibDecompress(zlibCompressed);
+```
+
+### 🌐 HTTP 客户端模块 (`http`)
+
+- **HTTP 方法**: GET, POST, PUT, DELETE, PATCH, HEAD, OPTIONS
+- **请求配置**: 请求头、参数、超时、认证
+- **响应处理**: 自动 JSON 解析、状态码、响应头
+- **Promise 支持**: 所有请求返回 Promise
+
+```javascript
+const http = require('http');
+
+// GET 请求
+http.get('https://api.example.com/users')
+  .then(response => {
+    console.log('状态码:', response.status);
+    console.log('数据:', response.data);
+  });
+
+// POST 请求
+http.post('https://api.example.com/users', {
+  data: { name: 'John', email: 'john@example.com' },
+  headers: { 'Content-Type': 'application/json' }
+})
+  .then(response => console.log('创建成功:', response.data));
+
+// 自定义客户端
+const client = http.createClient({ timeout: 10 });
+client.get('https://api.example.com/data')
+  .then(response => console.log(response.data));
+```
+
+### 🚀 HTTP 服务器模块 (`httpserver` / `server`)
+
+- **路由系统**: 支持 GET, POST, PUT, DELETE 等 HTTP 方法
+- **中间件支持**: Express 风格的中间件链
+- **请求处理**: 自动解析请求体、查询参数、请求头
+- **响应方法**: JSON、HTML、文本、重定向等响应类型
+- **静态文件**: 内置静态文件服务器
+- **Promise 支持**: 异步启动和关闭
+
+```javascript
+const server = require('httpserver');
+
+// 创建服务器
+const app = server.createServer();
+
+// 添加中间件
+app.use((req, res, next) => {
+  console.log(`${req.method} ${req.path}`);
+  res.header('X-Powered-By', 'SW-Runtime');
+  next();
+});
+
+// 添加路由
+app.get('/', (req, res) => {
+  res.html('<h1>Hello SW Runtime!</h1>');
+});
+
+app.get('/api/users', (req, res) => {
+  res.json({
+    users: [
+      { id: 1, name: 'Alice' },
+      { id: 2, name: 'Bob' }
+    ]
+  });
+});
+
+app.post('/api/users', (req, res) => {
+  const user = req.json; // 自动解析的 JSON 数据
+  res.status(201).json({
+    message: 'User created',
+    user: user
+  });
+});
+
+// 静态文件服务
+app.static('./public', '/static');
+
+// 启动服务器
+app.listen('3000')
+  .then(result => {
+    console.log('服务器启动成功:', result);
+  });
+```
+
+### 🔴 Redis 客户端模块 (`redis`)
+
+- **连接管理**: 支持连接配置、认证、数据库选择
+- **数据类型**: 字符串、哈希、列表、集合、有序集合
+- **JSON 支持**: 自动序列化/反序列化 JSON 数据
+- **Promise 支持**: 所有操作返回 Promise
+
+```javascript
+const redis = require('redis');
+
+// 创建连接
+const client = redis.createClient({
+  host: 'localhost',
+  port: 6379,
+  db: 0
+});
+
+// 字符串操作
+await client.set('key', 'value', 60); // 60秒过期
+const value = await client.get('key');
+
+// JSON 数据
+await client.setJSON('user:1', { name: 'John', age: 30 });
+const user = await client.getJSON('user:1');
+
+// 哈希操作
+await client.hset('user:profile', 'name', 'Alice');
+const profile = await client.hgetall('user:profile');
+
+// 列表操作
+await client.lpush('tasks', 'task1', 'task2');
+const tasks = await client.lrange('tasks', 0, -1);
+
+// 集合操作
+await client.sadd('tags', 'javascript', 'redis');
+const tags = await client.smembers('tags');
+```
+
+### 🗄️ SQLite 数据库模块 (`sqlite`)
+
+- **数据库连接**: 内存数据库、文件数据库
+- **SQL 操作**: 查询、插入、更新、删除
+- **事务支持**: 自动事务、手动事务控制
+- **预处理语句**: 提高性能和安全性
+- **Promise 支持**: 所有操作返回 Promise
+
+```javascript
+const sqlite = require('sqlite');
+
+// 打开数据库
+const db = await sqlite.open('./database.db');
+// 或内存数据库
+const memDb = await sqlite.open(':memory:');
+
+// 创建表
+await db.exec(`
+  CREATE TABLE users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    email TEXT UNIQUE,
+    age INTEGER
+  )
+`);
+
+// 插入数据
+const result = await db.run('INSERT INTO users (name, email, age) VALUES (?, ?, ?)', 
+  ['张三', 'zhangsan@example.com', 25]);
+console.log('插入ID:', result.lastInsertId);
+
+// 查询单条记录
+const user = await db.get('SELECT * FROM users WHERE id = ?', [1]);
+console.log('用户:', user);
+
+// 查询多条记录
+const users = await db.all('SELECT * FROM users WHERE age > ?', [20]);
+console.log('用户列表:', users);
+
+// 使用事务
+await db.transaction(async (tx) => {
+  await tx.run('INSERT INTO users (name, email, age) VALUES (?, ?, ?)', 
+    ['李四', 'lisi@example.com', 30]);
+  await tx.run('UPDATE users SET age = ? WHERE name = ?', [26, '张三']);
+});
+
+// 预处理语句
+const stmt = await db.prepare('SELECT * FROM users WHERE age > ?');
+const olderUsers = await stmt.all(25);
+await stmt.close();
+
+// 获取数据库信息
+const tables = await db.tables();
+const schema = await db.schema('users');
+
+// 关闭数据库
+await db.close();
+```
+
+### 📁 文件系统模块 (`fs`)
+
+- **同步操作**: `readFileSync`, `writeFileSync`, `existsSync`, `statSync`, `mkdirSync`, `readdirSync`, `unlinkSync`, `rmdirSync`, `copyFileSync`, `renameSync`
+- **异步操作**: `readFile`, `writeFile`, `stat`, `mkdir`, `readdir`, `unlink`, `rmdir`, `copyFile`, `rename`
+- **Promise 支持**: 所有异步操作返回 Promise
+
+```javascript
+const fs = require('fs');
+
+// 同步操作
+fs.writeFileSync('file.txt', 'content');
+const content = fs.readFileSync('file.txt', 'utf8');
+
+// 异步操作
+fs.writeFile('file.txt', 'content')
+  .then(() => fs.readFile('file.txt'))
+  .then(content => console.log(content));
+```
+
+### 🛤️ 路径模块 (`path`)
+
+- **路径操作**: `join`, `resolve`, `dirname`, `basename`, `extname`
+- **路径判断**: `isAbsolute`, `relative`, `normalize`
+- **跨平台支持**
+
+```javascript
+const path = require('path');
+
+console.log(path.join('a', 'b', 'c'));        // a/b/c
+console.log(path.resolve('./test'));          // 绝对路径
+console.log(path.dirname('/a/b/c.js'));       // /a/b
+console.log(path.basename('/a/b/c.js'));      // c.js
+console.log(path.extname('test.js'));         // .js
+```
+
+## 🚀 使用示例
+
+### HTTP 客户端示例
+
+```javascript
+const http = require('http');
+
+// 获取用户数据
+http.get('https://jsonplaceholder.typicode.com/users/1')
+  .then(response => {
+    console.log('用户信息:', response.data);
+    console.log('状态码:', response.status);
+  })
+  .catch(error => {
+    console.error('请求失败:', error.message);
+  });
+
+// 创建新用户
+http.post('https://jsonplaceholder.typicode.com/users', {
+  data: {
+    name: 'John Doe',
+    email: 'john@example.com'
+  },
+  headers: {
+    'Content-Type': 'application/json'
+  }
+})
+  .then(response => {
+    console.log('用户创建成功:', response.data);
+  });
+```
+
+### Redis 客户端示例
+
+```javascript
+const redis = require('redis');
+
+// 连接 Redis
+const client = redis.createClient({
+  host: 'localhost',
+  port: 6379
+});
+
+// 基本操作
+async function redisExample() {
+  // 设置和获取字符串
+  await client.set('username', 'john_doe');
+  const username = await client.get('username');
+  console.log('用户名:', username);
+
+  // JSON 数据操作
+  const userData = {
+    id: 1,
+    name: 'John Doe',
+    email: 'john@example.com'
+  };
+  
+  await client.setJSON('user:1', userData);
+  const user = await client.getJSON('user:1');
+  console.log('用户数据:', user);
+
+  // 列表操作
+  await client.lpush('notifications', 'Welcome!', 'New message');
+  const notifications = await client.lrange('notifications', 0, -1);
+  console.log('通知列表:', notifications);
+}
+
+redisExample().catch(console.error);
+```
+
+## 🔧 技术实现
+
+- **Go 语言**: 高性能系统级编程
+- **goja**: 纯 Go 实现的 JavaScript 引擎
+- **esbuild**: 快速 TypeScript 编译
+- **模块化设计**: 清晰的包结构和职责分离
+- **并发安全**: 线程安全的模块缓存和异步操作
+
+## 📊 性能特点
+
+- **快速启动**: 无需 Node.js 环境
+- **低内存占用**: 精简的运行时设计
+- **高并发**: Go 协程支持异步操作
+- **模块缓存**: 避免重复加载提升性能
+
+## 🎯 适用场景
+
+- **API 服务**: 内置 HTTP 客户端，轻松调用外部 API
+- **数据缓存**: Redis 客户端支持高性能数据缓存
+- **数据库应用**: SQLite 支持轻量级数据存储和查询
+- **服务端脚本**: 替代 Node.js 的轻量级方案
+- **配置脚本**: 动态配置和规则引擎
+- **数据处理**: 支持加解密和压缩的数据管道
+- **微服务**: 嵌入式 JavaScript 执行环境
+- **自动化工具**: 跨平台脚本执行
+- **爬虫和数据采集**: HTTP 客户端 + 数据处理
+- **实时数据处理**: Redis + SQLite + 压缩 + 加密
+
+## 🔄 扩展性
+
+系统采用插件化设计，可以轻松添加新的内置模块：
+
+```go
+// 添加自定义模块
+manager.RegisterModule("mymodule", NewMyModule(vm))
+```
+
+这是一个企业级的 JavaScript/TypeScript 运行时，提供了完整的模块系统、HTTP/Redis/SQLite 客户端、加解密、压缩、文件操作等功能，适合各种服务端应用场景。

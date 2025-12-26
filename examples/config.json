@@ -1,0 +1,14 @@
+{
+    "name": "sw_runtime",
+    "version": "1.0.0",
+    "description": "JavaScript/TypeScript runtime with module support",
+    "settings": {
+        "debug": true,
+        "timeout": 5000
+    },
+    "features": [
+        "modules",
+        "async",
+        "timers"
+    ]
+}
