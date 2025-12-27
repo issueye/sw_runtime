@@ -9,7 +9,7 @@ import (
 )
 
 func TestRunnerBasicFunctionality(t *testing.T) {
-	runner := runtime.New()
+	runner := runtime.NewOrPanic()
 
 	// 测试基本 JavaScript 代码执行
 	code := `
@@ -24,7 +24,7 @@ func TestRunnerBasicFunctionality(t *testing.T) {
 }
 
 func TestRunnerTypeScriptSupport(t *testing.T) {
-	runner := runtime.New()
+	runner := runtime.NewOrPanic()
 
 	// 测试 TypeScript 代码执行
 	tsCode := `
@@ -48,7 +48,7 @@ func TestRunnerTypeScriptSupport(t *testing.T) {
 }
 
 func TestRunnerConsoleOutput(t *testing.T) {
-	runner := runtime.New()
+	runner := runtime.NewOrPanic()
 
 	// 测试 console 对象的各种方法
 	code := `
@@ -64,7 +64,7 @@ func TestRunnerConsoleOutput(t *testing.T) {
 }
 
 func TestRunnerGlobalVariables(t *testing.T) {
-	runner := runtime.New()
+	runner := runtime.NewOrPanic()
 
 	// 设置全局变量
 	runner.SetValue("testVar", "Hello World")
@@ -93,7 +93,7 @@ func TestRunnerGlobalVariables(t *testing.T) {
 }
 
 func TestRunnerAsyncOperations(t *testing.T) {
-	runner := runtime.New()
+	runner := runtime.NewOrPanic()
 
 	// 测试 setTimeout
 	code := `
@@ -119,7 +119,7 @@ func TestRunnerAsyncOperations(t *testing.T) {
 }
 
 func TestRunnerPromiseSupport(t *testing.T) {
-	runner := runtime.New()
+	runner := runtime.NewOrPanic()
 
 	// 测试 Promise
 	code := `
@@ -152,7 +152,7 @@ func TestRunnerPromiseSupport(t *testing.T) {
 }
 
 func TestRunnerModuleSystem(t *testing.T) {
-	runner := runtime.New()
+	runner := runtime.NewOrPanic()
 
 	// 测试内置模块
 	code := `
@@ -168,7 +168,7 @@ func TestRunnerModuleSystem(t *testing.T) {
 }
 
 func TestRunnerErrorHandling(t *testing.T) {
-	runner := runtime.New()
+	runner := runtime.NewOrPanic()
 
 	// 测试语法错误
 	invalidCode := `
@@ -196,7 +196,7 @@ func TestRunnerErrorHandling(t *testing.T) {
 }
 
 func TestRunnerModuleCache(t *testing.T) {
-	runner := runtime.New()
+	runner := runtime.NewOrPanic()
 
 	// 测试模块缓存功能
 	loadedModules := runner.GetLoadedModules()
@@ -227,7 +227,7 @@ func TestRunnerModuleCache(t *testing.T) {
 }
 
 func TestRunnerBuiltinModules(t *testing.T) {
-	runner := runtime.New()
+	runner := runtime.NewOrPanic()
 
 	// 获取内置模块列表
 	builtinModules := runner.GetBuiltinModules()

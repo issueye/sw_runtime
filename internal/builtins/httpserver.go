@@ -12,7 +12,6 @@ import (
 	"reflect"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/dop251/goja"
@@ -24,9 +23,53 @@ import (
 // 全局变量，标记是否有 HTTP 服务器在运行
 var httpServerRunning int32
 
+// 服务器注册表，用于跟踪所有活动服务器
+var serverRegistry = struct {
+	sync.RWMutex
+	servers map[*HTTPServer]struct{}
+}{
+	servers: make(map[*HTTPServer]struct{}),
+}
+
 // IsHTTPServerRunning 检查是否有 HTTP 服务器在运行
 func IsHTTPServerRunning() bool {
-	return atomic.LoadInt32(&httpServerRunning) > 0
+	serverRegistry.RLock()
+	defer serverRegistry.RUnlock()
+	return len(serverRegistry.servers) > 0
+}
+
+// registerServer 注册服务器
+func registerServer(s *HTTPServer) {
+	serverRegistry.Lock()
+	defer serverRegistry.Unlock()
+	serverRegistry.servers[s] = struct{}{}
+}
+
+// unregisterServer 注销服务器
+func unregisterServer(s *HTTPServer) {
+	serverRegistry.Lock()
+	defer serverRegistry.Unlock()
+	delete(serverRegistry.servers, s)
+}
+
+// closeAllHTTPServers 关闭所有注册的 HTTP 服务器
+func closeAllHTTPServers() {
+	serverRegistry.Lock()
+	servers := make([]*HTTPServer, 0, len(serverRegistry.servers))
+	for s := range serverRegistry.servers {
+		servers = append(servers, s)
+	}
+	serverRegistry.Unlock()
+
+	// 关闭所有服务器
+	for _, s := range servers {
+		if s.server != nil {
+			ctx, cancel := context.WithTimeout(context.Background(), consts.DefaultHTTPTimeout)
+			s.server.Shutdown(ctx)
+			cancel()
+		}
+		s.stopVMProcessor()
+	}
 }
 
 // HTTPServerModule HTTP 服务器模块
@@ -56,6 +99,8 @@ type HTTPServer struct {
 	requestChan chan func(*goja.Runtime)
 	wg          sync.WaitGroup
 	stopChan    chan struct{}
+	stopOnce    sync.Once
+	initialized bool
 }
 
 // NewHTTPServerModule 创建 HTTP 服务器模块
@@ -202,18 +247,47 @@ func (h *HTTPServerModule) createServerObject(server *HTTPServer) goja.Value {
 
 // startVMProcessor 启动 VM 处理器（串行化对 goja.Runtime 的访问）
 func (s *HTTPServer) startVMProcessor() {
+	if s.initialized {
+		return
+	}
+	s.initialized = true
 	s.wg.Add(1)
 	go func() {
 		defer s.wg.Done()
 		for {
 			select {
-			case fn := <-s.requestChan:
-				fn(s.vm)
+			case fn, ok := <-s.requestChan:
+				if !ok {
+					return
+				}
+				if fn != nil {
+					fn(s.vm)
+				}
 			case <-s.stopChan:
 				return
 			}
 		}
 	}()
+}
+
+// stopVMProcessor 停止 VM 处理器
+func (s *HTTPServer) stopVMProcessor() {
+	s.stopOnce.Do(func() {
+		// 关闭请求通道
+		select {
+		case <-s.requestChan:
+			// 已关闭
+		default:
+			close(s.requestChan)
+		}
+		// 发送停止信号
+		select {
+		case <-s.stopChan:
+			// 已经关闭
+		default:
+			close(s.stopChan)
+		}
+	})
 }
 
 // createSetWSAllowedOrigins 创建设置允许来源的方法
@@ -372,8 +446,8 @@ func (h *HTTPServerModule) createListenHandler(server *HTTPServer) func(goja.Fun
 
 		promise, resolve, reject := h.vm.NewPromise()
 
-		// 标记有 HTTP 服务器在运行
-		atomic.AddInt32(&httpServerRunning, 1)
+		// 注册服务器
+		registerServer(server)
 
 		go func() {
 			server.server = &http.Server{
@@ -400,8 +474,11 @@ func (h *HTTPServerModule) createListenHandler(server *HTTPServer) func(goja.Fun
 
 			// 启动服务器
 			if err := server.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-				atomic.AddInt32(&httpServerRunning, -1)
+				unregisterServer(server)
 				reject(h.vm.NewGoError(err))
+			} else {
+				// 服务器正常关闭
+				unregisterServer(server)
 			}
 		}()
 
@@ -433,8 +510,8 @@ func (h *HTTPServerModule) createListenTLSHandler(server *HTTPServer) func(goja.
 
 		promise, resolve, reject := h.vm.NewPromise()
 
-		// 标记有 HTTP 服务器在运行
-		atomic.AddInt32(&httpServerRunning, 1)
+		// 注册服务器
+		registerServer(server)
 
 		go func() {
 			server.server = &http.Server{
@@ -461,8 +538,11 @@ func (h *HTTPServerModule) createListenTLSHandler(server *HTTPServer) func(goja.
 
 			// 启动 HTTPS 服务器
 			if err := server.server.ListenAndServeTLS(certFile, keyFile); err != nil && err != http.ErrServerClosed {
-				atomic.AddInt32(&httpServerRunning, -1)
+				unregisterServer(server)
 				reject(h.vm.NewGoError(err))
+			} else {
+				// 服务器正常关闭
+				unregisterServer(server)
 			}
 		}()
 
@@ -477,7 +557,7 @@ func (h *HTTPServerModule) createCloseHandler(server *HTTPServer) func(goja.Func
 
 		go func() {
 			// 1. 停止 VM 处理器
-			close(server.stopChan)
+			server.stopVMProcessor()
 
 			// 2. 关闭 HTTP 服务器
 			if server.server != nil {

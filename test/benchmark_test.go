@@ -16,7 +16,7 @@ func BenchmarkRunnerBasicExecution(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		runner := runtime.New()
+		runner := runtime.NewOrPanic()
 		err := runner.RunCode(code)
 		if err != nil {
 			b.Fatalf("Failed to run code: %v", err)
@@ -47,7 +47,7 @@ func BenchmarkRunnerTypeScriptCompilation(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		runner := runtime.New()
+		runner := runtime.NewOrPanic()
 		err := runner.RunCode(tsCode)
 		if err != nil {
 			b.Fatalf("Failed to run TypeScript code: %v", err)
@@ -66,7 +66,7 @@ func BenchmarkRunnerModuleLoading(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		runner := runtime.New()
+		runner := runtime.NewOrPanic()
 		err := runner.RunCode(code)
 		if err != nil {
 			b.Fatalf("Failed to run module loading: %v", err)
@@ -84,7 +84,7 @@ func BenchmarkRunnerAsyncOperations(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		runner := runtime.New()
+		runner := runtime.NewOrPanic()
 		err := runner.RunCode(code)
 		if err != nil {
 			b.Fatalf("Failed to run async operations: %v", err)
@@ -105,7 +105,7 @@ func BenchmarkRunnerPromiseExecution(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		runner := runtime.New()
+		runner := runtime.NewOrPanic()
 		err := runner.RunCode(code)
 		if err != nil {
 			b.Fatalf("Failed to run promise execution: %v", err)
@@ -143,7 +143,7 @@ func BenchmarkRunnerComplexCalculation(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		runner := runtime.New()
+		runner := runtime.NewOrPanic()
 		err := runner.RunCode(code)
 		if err != nil {
 			b.Fatalf("Failed to run complex calculation: %v", err)
@@ -181,7 +181,7 @@ func BenchmarkRunnerObjectManipulation(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		runner := runtime.New()
+		runner := runtime.NewOrPanic()
 		err := runner.RunCode(code)
 		if err != nil {
 			b.Fatalf("Failed to run object manipulation: %v", err)
@@ -210,7 +210,7 @@ func BenchmarkRunnerStringOperations(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		runner := runtime.New()
+		runner := runtime.NewOrPanic()
 		err := runner.RunCode(code)
 		if err != nil {
 			b.Fatalf("Failed to run string operations: %v", err)
@@ -237,7 +237,7 @@ func BenchmarkRunnerMemoryUsage(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		runner := runtime.New()
+		runner := runtime.NewOrPanic()
 		err := runner.RunCode(code)
 		if err != nil {
 			b.Fatalf("Failed to run memory usage test: %v", err)
@@ -264,7 +264,7 @@ func BenchmarkRunnerConcurrentOperations(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		runner := runtime.New()
+		runner := runtime.NewOrPanic()
 		err := runner.RunCode(code)
 		if err != nil {
 			b.Fatalf("Failed to run concurrent operations: %v", err)

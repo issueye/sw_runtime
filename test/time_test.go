@@ -9,7 +9,7 @@ import (
 
 // TestTimeModule 测试时间模块基础功能
 func TestTimeModule(t *testing.T) {
-	runner := runtime.New()
+	runner := runtime.NewOrPanic()
 
 	script := `
 		const time = require('time');
@@ -29,7 +29,7 @@ func TestTimeModule(t *testing.T) {
 
 // TestTimeNow 测试获取当前时间
 func TestTimeNow(t *testing.T) {
-	runner := runtime.New()
+	runner := runtime.NewOrPanic()
 
 	script := `
 		const time = require('time');
@@ -60,7 +60,7 @@ func TestTimeNow(t *testing.T) {
 
 // TestTimeFormat 测试时间格式化
 func TestTimeFormat(t *testing.T) {
-	runner := runtime.New()
+	runner := runtime.NewOrPanic()
 
 	script := `
 		const time = require('time');
@@ -84,7 +84,7 @@ func TestTimeFormat(t *testing.T) {
 
 // TestTimeParse 测试时间解析
 func TestTimeParse(t *testing.T) {
-	runner := runtime.New()
+	runner := runtime.NewOrPanic()
 
 	script := `
 		const time = require('time');
@@ -118,7 +118,7 @@ func TestTimeParse(t *testing.T) {
 
 // TestTimeAdd 测试时间计算
 func TestTimeAdd(t *testing.T) {
-	runner := runtime.New()
+	runner := runtime.NewOrPanic()
 
 	script := `
 		const time = require('time');
@@ -156,7 +156,7 @@ func TestTimeAdd(t *testing.T) {
 
 // TestTimeComparison 测试时间比较
 func TestTimeComparison(t *testing.T) {
-	runner := runtime.New()
+	runner := runtime.NewOrPanic()
 
 	script := `
 		const time = require('time');
@@ -183,7 +183,7 @@ func TestTimeComparison(t *testing.T) {
 
 // TestTimeDiff 测试时间差计算
 func TestTimeDiff(t *testing.T) {
-	runner := runtime.New()
+	runner := runtime.NewOrPanic()
 
 	script := `
 		const time = require('time');
@@ -212,7 +212,7 @@ func TestTimeDiff(t *testing.T) {
 
 // TestTimeComponents 测试时间组件获取
 func TestTimeComponents(t *testing.T) {
-	runner := runtime.New()
+	runner := runtime.NewOrPanic()
 
 	script := `
 		const time = require('time');
@@ -250,7 +250,7 @@ func TestTimeComponents(t *testing.T) {
 
 // TestTimeCreate 测试时间创建
 func TestTimeCreate(t *testing.T) {
-	runner := runtime.New()
+	runner := runtime.NewOrPanic()
 
 	script := `
 		const time = require('time');
@@ -287,7 +287,7 @@ func TestTimeCreate(t *testing.T) {
 
 // TestTimeFromUnix 测试从时间戳创建
 func TestTimeFromUnix(t *testing.T) {
-	runner := runtime.New()
+	runner := runtime.NewOrPanic()
 
 	script := `
 		const time = require('time');
@@ -309,7 +309,7 @@ func TestTimeFromUnix(t *testing.T) {
 
 // TestTimeSleep 测试延迟执行
 func TestTimeSleep(t *testing.T) {
-	runner := runtime.New()
+	runner := runtime.NewOrPanic()
 
 	script := `
 		const time = require('time');
@@ -340,7 +340,7 @@ func TestTimeSleep(t *testing.T) {
 
 // TestTimeConstants 测试时间常量
 func TestTimeConstants(t *testing.T) {
-	runner := runtime.New()
+	runner := runtime.NewOrPanic()
 
 	script := `
 		const time = require('time');
@@ -366,7 +366,7 @@ func TestTimeConstants(t *testing.T) {
 
 // BenchmarkTimeModule 性能测试
 func BenchmarkTimeModule(b *testing.B) {
-	runner := runtime.New()
+	runner := runtime.NewOrPanic()
 
 	script := `
 		const time = require('time');
@@ -384,7 +384,7 @@ func BenchmarkTimeModule(b *testing.B) {
 
 // TestTimeSetInterval 测试 setInterval
 func TestTimeSetInterval(t *testing.T) {
-	runner := runtime.New()
+	runner := runtime.NewOrPanic()
 
 	script := `
 		const time = require('time');
@@ -417,7 +417,7 @@ func TestTimeSetInterval(t *testing.T) {
 
 // TestTimeClearInterval 测试 clearInterval
 func TestTimeClearInterval(t *testing.T) {
-	runner := runtime.New()
+	runner := runtime.NewOrPanic()
 
 	script := `
 		const time = require('time');
@@ -449,7 +449,7 @@ func TestTimeClearInterval(t *testing.T) {
 
 // TestTimeCreateTicker 测试 createTicker
 func TestTimeCreateTicker(t *testing.T) {
-	runner := runtime.New()
+	runner := runtime.NewOrPanic()
 
 	script := `
 		const time = require('time');
@@ -495,7 +495,7 @@ func TestTimeCreateTicker(t *testing.T) {
 
 // TestTickerReset 测试 ticker reset
 func TestTickerReset(t *testing.T) {
-	runner := runtime.New()
+	runner := runtime.NewOrPanic()
 
 	script := `
 		const time = require('time');
@@ -527,7 +527,7 @@ func TestTickerReset(t *testing.T) {
 
 // TestMultipleTickers 测试多个定时器
 func TestMultipleTickers(t *testing.T) {
-	runner := runtime.New()
+	runner := runtime.NewOrPanic()
 
 	script := `
 		const time = require('time');

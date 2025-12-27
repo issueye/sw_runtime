@@ -21,6 +21,7 @@ type SimpleEventLoop struct {
 	intervals    map[int]*intervalEntry // 间隔定时器条目
 	timerID      atomic.Int64           // 原子计数器,避免锁竞争
 	mu           sync.RWMutex           // 读写锁,提升并发性能
+	vmMu         sync.Mutex             // 保护 goja.Runtime 并发访问(非线程安全)
 	running      atomic.Bool            // 原子布尔值,避免锁
 	activeJobs   atomic.Int32           // 活跃的异步任务计数
 	stopChan     chan struct{}          // 停止信号通道
@@ -214,7 +215,8 @@ func (el *SimpleEventLoop) SetTimeout(call goja.FunctionCall) goja.Value {
 		}
 
 		// 优化：减少 defer 开销，直接执行清理
-		// 先执行回调
+		// 先执行回调（需要加锁保护 goja.Runtime）
+		el.vmMu.Lock()
 		func() {
 			defer func() {
 				if r := recover(); r != nil {
@@ -223,6 +225,7 @@ func (el *SimpleEventLoop) SetTimeout(call goja.FunctionCall) goja.Value {
 			}()
 			fn(goja.Undefined())
 		}()
+		el.vmMu.Unlock()
 
 		// 然后清理资源
 		el.mu.Lock()
@@ -319,13 +322,17 @@ func (el *SimpleEventLoop) SetInterval(call goja.FunctionCall) goja.Value {
 					return
 				}
 
-				// 优化：内联 panic 处理，减少函数调用开销
-				defer func() {
-					if r := recover(); r != nil {
-						// 记录错误但继续运行
-					}
+				// 优化：内联 panic 处理，减少函数调用开销（需要加锁保护 goja.Runtime）
+				el.vmMu.Lock()
+				func() {
+					defer func() {
+						if r := recover(); r != nil {
+							// 记录错误但继续运行
+						}
+					}()
+					fn(goja.Undefined())
 				}()
-				fn(goja.Undefined())
+				el.vmMu.Unlock()
 			}
 		}
 	}()

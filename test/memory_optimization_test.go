@@ -87,7 +87,7 @@ func TestRunnerMemoryUsage(t *testing.T) {
 	runners := make([]*runtime.Runner, numRunners)
 
 	for i := 0; i < numRunners; i++ {
-		runners[i] = runtime.New()
+		runners[i] = runtime.NewOrPanic()
 
 		// 执行一些代码来测试内存使用
 		code := `
@@ -134,7 +134,7 @@ func TestRunnerMemoryUsage(t *testing.T) {
 }
 
 func TestCompressionMemoryUsage(t *testing.T) {
-	runner := runtime.New()
+	runner := runtime.NewOrPanic()
 	defer runner.Close()
 
 	// 记录初始内存状态
@@ -210,7 +210,7 @@ func BenchmarkPoolVsDirectAllocation(b *testing.B) {
 func BenchmarkRunnerCreationOptimized(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		runner := runtime.New()
+		runner := runtime.NewOrPanic()
 		runner.Close()
 	}
 }

@@ -11,7 +11,7 @@ import (
 
 // TestFixedEventLoopInterval 测试修复后的事件循环间隔功能
 func TestFixedEventLoopInterval(t *testing.T) {
-	runner := runtime.New()
+	runner := runtime.NewOrPanic()
 
 	code := `
 		let intervalExecuted = false;
@@ -42,7 +42,7 @@ func TestFixedEventLoopInterval(t *testing.T) {
 
 // TestFixedCompressionModule 测试修复后的压缩模块
 func TestFixedCompressionModule(t *testing.T) {
-	runner := runtime.New()
+	runner := runtime.NewOrPanic()
 
 	code := `
 		const zlib = require('zlib');
@@ -150,7 +150,7 @@ func TestFixedCompressionModule(t *testing.T) {
 
 // TestFixedFileSystemModule 测试修复后的文件系统模块
 func TestFixedFileSystemModule(t *testing.T) {
-	runner := runtime.New()
+	runner := runtime.NewOrPanic()
 
 	code := `
 		const fs = require('fs');
@@ -234,7 +234,7 @@ func TestFixedFileSystemModule(t *testing.T) {
 
 // TestAllFixesIntegration 综合测试所有修复
 func TestAllFixesIntegration(t *testing.T) {
-	runner := runtime.New()
+	runner := runtime.NewOrPanic()
 
 	code := `
 		console.log('🚀 Starting comprehensive fixes integration test...');

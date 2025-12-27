@@ -64,7 +64,7 @@ func TestIntegrationBasicApp(t *testing.T) {
 		t.Fatalf("Failed to create app file: %v", err)
 	}
 
-	runner := runtime.New()
+	runner := runtime.NewOrPanic()
 	defer runner.Close()
 	err = runner.RunFile(appFile)
 	if err != nil {
@@ -85,7 +85,7 @@ func TestIntegrationBasicApp(t *testing.T) {
 }
 
 func TestIntegrationAsyncOperations(t *testing.T) {
-	runner := runtime.New()
+	runner := runtime.NewOrPanic()
 	defer runner.Close()
 
 	code := `
@@ -266,7 +266,7 @@ func TestIntegrationModuleInteraction(t *testing.T) {
 	defer os.Chdir(originalDir)
 	os.Chdir(tempDir)
 
-	runner := runtime.New()
+	runner := runtime.NewOrPanic()
 	defer runner.Close()
 	err := runner.RunFile("main.ts")
 	if err != nil {
@@ -280,7 +280,7 @@ func TestIntegrationModuleInteraction(t *testing.T) {
 }
 
 func TestIntegrationErrorRecovery(t *testing.T) {
-	runner := runtime.New()
+	runner := runtime.NewOrPanic()
 	defer runner.Close() // 添加 Close 确保资源清理
 
 	code := `
@@ -456,7 +456,7 @@ func TestIntegrationComplexApplication(t *testing.T) {
 		t.Fatalf("Failed to create complex app file: %v", err)
 	}
 
-	runner := runtime.New()
+	runner := runtime.NewOrPanic()
 	defer runner.Close()
 	err = runner.RunFile(appFile)
 	if err != nil {

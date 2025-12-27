@@ -354,3 +354,9 @@ func (ms *System) GetLoadedModules() []string {
 func (ms *System) GetBuiltinModules() []string {
 	return ms.builtinManager.GetModuleNames()
 }
+
+// Close 关闭模块系统并清理资源
+func (ms *System) Close() {
+	ms.builtinManager.Close()
+	ms.ClearCache()
+}

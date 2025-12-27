@@ -12,7 +12,7 @@ import (
 
 // TestHTTPServerFileServiceBasic 测试基本的文件服务功能
 func TestHTTPServerFileServiceBasic(t *testing.T) {
-	runner := runtime.New()
+	runner := runtime.NewOrPanic()
 	defer runner.Close()
 
 	// 创建临时测试文件
@@ -78,7 +78,7 @@ func TestHTTPServerFileServiceBasic(t *testing.T) {
 
 // TestHTTPServerMIMEDetection 测试 MIME 类型检测
 func TestHTTPServerMIMEDetection(t *testing.T) {
-	runner := runtime.New()
+	runner := runtime.NewOrPanic()
 	defer runner.Close()
 
 	tmpDir := t.TempDir()

@@ -9,7 +9,7 @@ import (
 
 // BenchmarkEventLoopSetTimeout 测试 setTimeout 性能
 func BenchmarkEventLoopSetTimeout(b *testing.B) {
-	runner := runtime.New()
+	runner := runtime.NewOrPanic()
 	defer runner.Close()
 
 	b.ResetTimer()
@@ -24,7 +24,7 @@ func BenchmarkEventLoopSetTimeout(b *testing.B) {
 
 // BenchmarkEventLoopSetInterval 测试 setInterval 性能
 func BenchmarkEventLoopSetInterval(b *testing.B) {
-	runner := runtime.New()
+	runner := runtime.NewOrPanic()
 	defer runner.Close()
 
 	b.ResetTimer()
@@ -44,7 +44,7 @@ func BenchmarkEventLoopSetInterval(b *testing.B) {
 
 // BenchmarkEventLoopMultipleTimers 测试多个定时器性能
 func BenchmarkEventLoopMultipleTimers(b *testing.B) {
-	runner := runtime.New()
+	runner := runtime.NewOrPanic()
 	defer runner.Close()
 
 	b.ResetTimer()
@@ -63,7 +63,7 @@ func BenchmarkEventLoopMultipleTimers(b *testing.B) {
 
 // TestEventLoopConcurrentTimers 测试并发定时器
 func TestEventLoopConcurrentTimers(t *testing.T) {
-	runner := runtime.New()
+	runner := runtime.NewOrPanic()
 	defer runner.Close()
 
 	start := time.Now()
@@ -101,7 +101,7 @@ func TestEventLoopConcurrentTimers(t *testing.T) {
 // TestEventLoopMemoryLeak 测试内存泄漏
 func TestEventLoopMemoryLeak(t *testing.T) {
 	for iteration := 0; iteration < 3; iteration++ {
-		runner := runtime.New()
+		runner := runtime.NewOrPanic()
 
 		code := `
 			let timers = [];
@@ -140,7 +140,7 @@ func TestEventLoopMemoryLeak(t *testing.T) {
 
 // TestEventLoopStressTest 压力测试
 func TestEventLoopStressTest(t *testing.T) {
-	runner := runtime.New()
+	runner := runtime.NewOrPanic()
 	defer runner.Close()
 
 	start := time.Now()
@@ -205,7 +205,7 @@ func TestEventLoopStressTest(t *testing.T) {
 
 // TestEventLoopRapidCancelation 测试快速取消
 func TestEventLoopRapidCancelation(t *testing.T) {
-	runner := runtime.New()
+	runner := runtime.NewOrPanic()
 	defer runner.Close()
 
 	start := time.Now()

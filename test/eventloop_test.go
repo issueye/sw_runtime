@@ -10,7 +10,7 @@ import (
 )
 
 func TestEventLoopBasicTimer(t *testing.T) {
-	runner := runtime.New()
+	runner := runtime.NewOrPanic()
 
 	code := `
 		let timerExecuted = false;
@@ -42,7 +42,7 @@ func TestEventLoopBasicTimer(t *testing.T) {
 }
 
 func TestEventLoopInterval(t *testing.T) {
-	runner := runtime.New()
+	runner := runtime.NewOrPanic()
 
 	code := `
 		let intervalCount = 0;
@@ -73,7 +73,7 @@ func TestEventLoopInterval(t *testing.T) {
 }
 
 func TestEventLoopClearTimeout(t *testing.T) {
-	runner := runtime.New()
+	runner := runtime.NewOrPanic()
 
 	code := `
 		let shouldNotExecute = false;
@@ -101,7 +101,7 @@ func TestEventLoopClearTimeout(t *testing.T) {
 }
 
 func TestEventLoopMultipleTimers(t *testing.T) {
-	runner := runtime.New()
+	runner := runtime.NewOrPanic()
 
 	code := `
 		let results = [];
@@ -141,7 +141,7 @@ func TestEventLoopMultipleTimers(t *testing.T) {
 }
 
 func TestEventLoopNestedTimers(t *testing.T) {
-	runner := runtime.New()
+	runner := runtime.NewOrPanic()
 
 	code := `
 		let nestedResult = null;
@@ -168,7 +168,7 @@ func TestEventLoopNestedTimers(t *testing.T) {
 }
 
 func TestEventLoopPromiseIntegration(t *testing.T) {
-	runner := runtime.New()
+	runner := runtime.NewOrPanic()
 
 	code := `
 		let promiseResult = null;
@@ -205,7 +205,7 @@ func TestEventLoopPromiseIntegration(t *testing.T) {
 }
 
 func TestEventLoopErrorHandling(t *testing.T) {
-	runner := runtime.New()
+	runner := runtime.NewOrPanic()
 
 	code := `
 		let errorCaught = false;

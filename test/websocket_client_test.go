@@ -9,7 +9,7 @@ import (
 // TestWebSocketClient 测试 WebSocket 客户端基本功能
 func TestWebSocketClient(t *testing.T) {
 	// 启动服务器
-	server := runtime.New()
+	server := runtime.NewOrPanic()
 	defer server.Close()
 
 	serverCode := `
@@ -36,7 +36,7 @@ func TestWebSocketClient(t *testing.T) {
 	time.Sleep(500 * time.Millisecond)
 
 	// 启动客户端
-	client := runtime.New()
+	client := runtime.NewOrPanic()
 	defer client.Close()
 
 	clientCode := `
@@ -82,7 +82,7 @@ func TestWebSocketClient(t *testing.T) {
 // TestWebSocketClientJSON 测试 WebSocket 客户端 JSON 消息
 func TestWebSocketClientJSON(t *testing.T) {
 	// 启动服务器
-	server := runtime.New()
+	server := runtime.NewOrPanic()
 	defer server.Close()
 
 	serverCode := `
@@ -114,7 +114,7 @@ func TestWebSocketClientJSON(t *testing.T) {
 	time.Sleep(500 * time.Millisecond)
 
 	// 启动客户端
-	client := runtime.New()
+	client := runtime.NewOrPanic()
 	defer client.Close()
 
 	clientCode := `
@@ -163,7 +163,7 @@ func TestWebSocketClientJSON(t *testing.T) {
 // TestWebSocketClientReconnect 测试 WebSocket 客户端重连
 func TestWebSocketClientReconnect(t *testing.T) {
 	// 启动服务器
-	server := runtime.New()
+	server := runtime.NewOrPanic()
 	defer server.Close()
 
 	serverCode := `
@@ -190,7 +190,7 @@ func TestWebSocketClientReconnect(t *testing.T) {
 	time.Sleep(500 * time.Millisecond)
 
 	// 启动客户端
-	client := runtime.New()
+	client := runtime.NewOrPanic()
 	defer client.Close()
 
 	clientCode := `
@@ -235,7 +235,7 @@ func TestWebSocketClientReconnect(t *testing.T) {
 // TestWebSocketClientOptions 测试 WebSocket 客户端选项
 func TestWebSocketClientOptions(t *testing.T) {
 	// 启动服务器
-	server := runtime.New()
+	server := runtime.NewOrPanic()
 	defer server.Close()
 
 	serverCode := `
@@ -262,7 +262,7 @@ func TestWebSocketClientOptions(t *testing.T) {
 	time.Sleep(500 * time.Millisecond)
 
 	// 启动客户端
-	client := runtime.New()
+	client := runtime.NewOrPanic()
 	defer client.Close()
 
 	clientCode := `
@@ -311,7 +311,7 @@ func TestWebSocketClientOptions(t *testing.T) {
 // BenchmarkWebSocketClient WebSocket 客户端性能测试
 func BenchmarkWebSocketClient(b *testing.B) {
 	// 启动服务器
-	server := runtime.New()
+	server := runtime.NewOrPanic()
 	defer server.Close()
 
 	serverCode := `
@@ -336,7 +336,7 @@ func BenchmarkWebSocketClient(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		client := runtime.New()
+		client := runtime.NewOrPanic()
 
 		clientCode := `
 			const ws = require('websocket');

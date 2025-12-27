@@ -219,8 +219,8 @@ func (r *Runner) Close() {
 	// 停止事件循环
 	r.loop.Stop()
 
-	// 清除模块缓存
-	r.modules.ClearCache()
+	// 关闭模块系统（包括所有 HTTP 服务器）
+	r.modules.Close()
 
 	// 减少 Runner 计数
 	pool.GlobalMemoryMonitor.DecrementRunnerCount()

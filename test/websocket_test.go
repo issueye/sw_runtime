@@ -12,7 +12,7 @@ import (
 
 // TestWebSocketBasic 测试基本的 WebSocket 功能
 func TestWebSocketBasic(t *testing.T) {
-	runner := runtime.New()
+	runner := runtime.NewOrPanic()
 	defer runner.Close()
 
 	code := `
@@ -77,7 +77,7 @@ func TestWebSocketBasic(t *testing.T) {
 
 // TestWebSocketJSON 测试 WebSocket JSON 消息
 func TestWebSocketJSON(t *testing.T) {
-	runner := runtime.New()
+	runner := runtime.NewOrPanic()
 	defer runner.Close()
 
 	code := `
@@ -136,7 +136,7 @@ func TestWebSocketJSON(t *testing.T) {
 
 // TestWebSocketMultipleConnections 测试多个 WebSocket 连接
 func TestWebSocketMultipleConnections(t *testing.T) {
-	runner := runtime.New()
+	runner := runtime.NewOrPanic()
 	defer runner.Close()
 
 	code := `
@@ -215,7 +215,7 @@ func TestWebSocketMultipleConnections(t *testing.T) {
 
 // TestWebSocketWithHTTP 测试 WebSocket 与 HTTP 路由共存
 func TestWebSocketWithHTTP(t *testing.T) {
-	runner := runtime.New()
+	runner := runtime.NewOrPanic()
 	defer runner.Close()
 
 	code := `
@@ -266,7 +266,7 @@ func TestWebSocketWithHTTP(t *testing.T) {
 
 // BenchmarkWebSocketEcho 基准测试 - WebSocket 回显
 func BenchmarkWebSocketEcho(b *testing.B) {
-	runner := runtime.New()
+	runner := runtime.NewOrPanic()
 	defer runner.Close()
 
 	code := `

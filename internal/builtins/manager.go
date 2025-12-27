@@ -74,3 +74,8 @@ func (m *Manager) GetModuleNames() []string {
 func (m *Manager) RegisterModule(name string, module BuiltinModule) {
 	m.modules[name] = module
 }
+
+// Close 关闭所有内置模块并清理资源
+func (m *Manager) Close() {
+	closeAllHTTPServers()
+}

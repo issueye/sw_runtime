@@ -11,7 +11,7 @@ import (
 // TestWebSocketServerClientIntegration 集成测试 - WebSocket 服务器和客户端
 func TestWebSocketServerClientIntegration(t *testing.T) {
 	// 启动服务器
-	server := runtime.New()
+	server := runtime.NewOrPanic()
 	defer server.Close()
 
 	serverCode := `
@@ -95,7 +95,7 @@ func TestWebSocketServerClientIntegration(t *testing.T) {
 // TestWebSocketPerformanceComparison 性能对比测试
 func TestWebSocketPerformanceComparison(t *testing.T) {
 	// 启动服务器
-	server := runtime.New()
+	server := runtime.NewOrPanic()
 	defer server.Close()
 
 	serverCode := `
@@ -164,7 +164,7 @@ func TestWebSocketPerformanceComparison(t *testing.T) {
 
 // TestWebSocketBidirectionalCommunication 双向通信测试
 func TestWebSocketBidirectionalCommunication(t *testing.T) {
-	server := runtime.New()
+	server := runtime.NewOrPanic()
 	defer server.Close()
 
 	serverCode := `
@@ -261,7 +261,7 @@ func TestWebSocketBidirectionalCommunication(t *testing.T) {
 
 // TestWebSocketJSONDataExchange JSON 数据交换测试
 func TestWebSocketJSONDataExchange(t *testing.T) {
-	server := runtime.New()
+	server := runtime.NewOrPanic()
 	defer server.Close()
 
 	serverCode := `
@@ -325,7 +325,7 @@ func TestWebSocketJSONDataExchange(t *testing.T) {
 
 // TestWebSocketConnectionLifecycle 连接生命周期测试
 func TestWebSocketConnectionLifecycle(t *testing.T) {
-	server := runtime.New()
+	server := runtime.NewOrPanic()
 	defer server.Close()
 
 	serverCode := `

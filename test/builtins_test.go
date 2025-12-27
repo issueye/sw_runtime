@@ -39,7 +39,7 @@ func TestBuiltinManager(t *testing.T) {
 }
 
 func TestPathModule(t *testing.T) {
-	runner := runtime.New()
+	runner := runtime.NewOrPanic()
 
 	code := `
 		const path = require('path');
@@ -86,7 +86,7 @@ func TestPathModule(t *testing.T) {
 }
 
 func TestFSModule(t *testing.T) {
-	runner := runtime.New()
+	runner := runtime.NewOrPanic()
 
 	code := `
 		const fs = require('fs');
@@ -124,7 +124,7 @@ func TestFSModule(t *testing.T) {
 }
 
 func TestCryptoModule(t *testing.T) {
-	runner := runtime.New()
+	runner := runtime.NewOrPanic()
 
 	code := `
 		const crypto = require('crypto');
@@ -173,7 +173,7 @@ func TestCryptoModule(t *testing.T) {
 }
 
 func TestHTTPModule(t *testing.T) {
-	runner := runtime.New()
+	runner := runtime.NewOrPanic()
 
 	code := `
 		const http = require('http');
@@ -203,7 +203,7 @@ func TestHTTPModule(t *testing.T) {
 }
 
 func TestCompressionModule(t *testing.T) {
-	runner := runtime.New()
+	runner := runtime.NewOrPanic()
 
 	code := `
 		const zlib = require('zlib');

@@ -10,7 +10,7 @@ import (
 )
 
 func TestModuleSystemBasicRequire(t *testing.T) {
-	runner := runtime.New()
+	runner := runtime.NewOrPanic()
 
 	// 测试内置模块加载
 	code := `
@@ -66,7 +66,7 @@ func TestModuleSystemFileModule(t *testing.T) {
 	defer os.Chdir(originalDir)
 	os.Chdir(tempDir)
 
-	runner := runtime.New()
+	runner := runtime.NewOrPanic()
 
 	code := `
 		const testModule = require('./testmodule.js');
@@ -140,7 +140,7 @@ func TestModuleSystemTypeScriptModule(t *testing.T) {
 	defer os.Chdir(originalDir)
 	os.Chdir(tempDir)
 
-	runner := runtime.New()
+	runner := runtime.NewOrPanic()
 
 	code := `
 		const tsModule = require('./tsmodule.ts');
@@ -217,7 +217,7 @@ func TestModuleSystemCircularDependency(t *testing.T) {
 	defer os.Chdir(originalDir)
 	os.Chdir(tempDir)
 
-	runner := runtime.New()
+	runner := runtime.NewOrPanic()
 
 	code := `
 		let circularResults = {
@@ -278,7 +278,7 @@ func TestModuleSystemCaching(t *testing.T) {
 	defer os.Chdir(originalDir)
 	os.Chdir(tempDir)
 
-	runner := runtime.New()
+	runner := runtime.NewOrPanic()
 
 	code := `
 		// 第一次加载
@@ -332,7 +332,7 @@ func TestModuleSystemDynamicImport(t *testing.T) {
 	defer os.Chdir(originalDir)
 	os.Chdir(tempDir)
 
-	runner := runtime.New()
+	runner := runtime.NewOrPanic()
 
 	code := `
 		let dynamicResults = {

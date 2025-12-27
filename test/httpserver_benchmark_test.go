@@ -13,7 +13,7 @@ import (
 
 // BenchmarkHTTPServerSimpleRoute 基准测试 - 简单路由
 func BenchmarkHTTPServerSimpleRoute(b *testing.B) {
-	runner := runtime.New()
+	runner := runtime.NewOrPanic()
 	defer runner.Close()
 
 	code := `
@@ -50,7 +50,7 @@ func BenchmarkHTTPServerSimpleRoute(b *testing.B) {
 
 // BenchmarkHTTPServerJSONResponse 基准测试 - JSON 响应
 func BenchmarkHTTPServerJSONResponse(b *testing.B) {
-	runner := runtime.New()
+	runner := runtime.NewOrPanic()
 	defer runner.Close()
 
 	code := `
@@ -96,7 +96,7 @@ func BenchmarkHTTPServerJSONResponse(b *testing.B) {
 
 // BenchmarkHTTPServerStaticFile 基准测试 - 静态文件服务
 func BenchmarkHTTPServerStaticFile(b *testing.B) {
-	runner := runtime.New()
+	runner := runtime.NewOrPanic()
 	defer runner.Close()
 
 	// 创建临时测试文件
@@ -141,7 +141,7 @@ func BenchmarkHTTPServerStaticFile(b *testing.B) {
 
 // BenchmarkHTTPServerWithMiddleware 基准测试 - 带中间件的路由
 func BenchmarkHTTPServerWithMiddleware(b *testing.B) {
-	runner := runtime.New()
+	runner := runtime.NewOrPanic()
 	defer runner.Close()
 
 	code := `
@@ -196,7 +196,7 @@ func BenchmarkHTTPServerWithMiddleware(b *testing.B) {
 
 // BenchmarkHTTPServerMultipleRoutes 基准测试 - 多路由性能
 func BenchmarkHTTPServerMultipleRoutes(b *testing.B) {
-	runner := runtime.New()
+	runner := runtime.NewOrPanic()
 	defer runner.Close()
 
 	code := `
@@ -239,7 +239,7 @@ func BenchmarkHTTPServerMultipleRoutes(b *testing.B) {
 
 // BenchmarkHTTPServerConcurrentRequests 基准测试 - 并发请求
 func BenchmarkHTTPServerConcurrentRequests(b *testing.B) {
-	runner := runtime.New()
+	runner := runtime.NewOrPanic()
 	defer runner.Close()
 
 	code := `
@@ -281,7 +281,7 @@ func BenchmarkHTTPServerConcurrentRequests(b *testing.B) {
 
 // TestHTTPServerPerformanceProfile 性能测试报告
 func TestHTTPServerPerformanceProfile(t *testing.T) {
-	runner := runtime.New()
+	runner := runtime.NewOrPanic()
 	defer runner.Close()
 
 	code := `
@@ -355,7 +355,7 @@ func TestHTTPServerPerformanceProfile(t *testing.T) {
 
 // TestHTTPServerThroughput 吞吐量测试
 func TestHTTPServerThroughput(t *testing.T) {
-	runner := runtime.New()
+	runner := runtime.NewOrPanic()
 	defer runner.Close()
 
 	// 创建一个较大的测试文件
@@ -416,7 +416,7 @@ func TestHTTPServerThroughput(t *testing.T) {
 
 // TestHTTPServerStressTest HTTP 服务器压力测试
 func TestHTTPServerStressTest(t *testing.T) {
-	runner := runtime.New()
+	runner := runtime.NewOrPanic()
 	defer runner.Close()
 
 	code := `
