@@ -15,6 +15,7 @@
 - [proxy - 代理模块](#proxy---代理模块)
 - [redis - Redis客户端模块](#redis---redis客户端模块)
 - [sqlite - SQLite数据库模块](#sqlite---sqlite数据库模块)
+- [time - 时间处理模块](#time---时间处理模块)
 - [exec/child_process - 进程执行模块](#execchild_process---进程执行模块)
 
 ---
@@ -1093,6 +1094,260 @@ tcpProxy.listen('6380').then(() => {
 **功能**: 打开数据库连接  
 **参数**: `path` (string) - 数据库文件路径，':memory:' 表示内存数据库  
 **返回值**: Promise<Database>  
+
+---
+
+## time - 时间处理模块
+
+### 时间获取
+
+#### now(): string
+**功能**: 获取当前时间（ISO 8601 格式）  
+**返回值**: string - ISO 8601 格式的时间字符串  
+**示例**:
+```javascript
+const time = require('time');
+console.log(time.now());  // "2024-12-27T15:30:00Z"
+```
+
+#### nowUnix(): number
+**功能**: 获取当前 Unix 时间戳（秒）  
+**返回值**: number - Unix 时间戳  
+
+#### nowUnixMilli(): number
+**功能**: 获取当前 Unix 时间戳（毫秒）  
+**返回值**: number - 毫秒级 Unix 时间戳  
+
+#### nowUnixNano(): number
+**功能**: 获取当前 Unix 时间戳（纳秒）  
+**返回值**: number - 纳秒级 Unix 时间戳  
+
+### 时间解析和格式化
+
+#### parse(timeStr: string, layout?: string): object
+**功能**: 解析时间字符串  
+**参数**:
+- `timeStr` (string) - 时间字符串
+- `layout` (string, 可选) - 时间格式，默认 RFC3339
+**返回值**: object - 包含 unix, iso, year, month, day, hour, minute, second, weekday  
+**示例**:
+```javascript
+const parsed = time.parse('2024-12-27T15:30:00Z');
+console.log(parsed.year);  // 2024
+console.log(parsed.month); // 12
+```
+
+#### format(timestamp: number, layout?: string): string
+**功能**: 格式化时间戳  
+**参数**:
+- `timestamp` (number) - Unix 时间戳（秒）
+- `layout` (string, 可选) - 时间格式，默认 RFC3339
+**返回值**: string - 格式化后的时间字符串  
+**示例**:
+```javascript
+const ts = time.nowUnix();
+console.log(time.format(ts, time.FORMAT.DateTime));  // "2024-12-27 15:30:00"
+```
+
+### 延迟执行
+
+#### sleep(seconds: number): Promise<void>
+**功能**: 延迟执行（秒）  
+**参数**: `seconds` (number) - 延迟秒数  
+**返回值**: Promise<void>  
+**示例**:
+```javascript
+time.sleep(2).then(() => console.log('2秒后执行'));
+```
+
+#### sleepMillis(milliseconds: number): Promise<void>
+**功能**: 延迟执行（毫秒）  
+**参数**: `milliseconds` (number) - 延迟毫秒数  
+**返回值**: Promise<void>  
+
+### 时间计算
+
+#### add(timestamp: number, duration: number): number
+**功能**: 添加时间间隔  
+**参数**:
+- `timestamp` (number) - Unix 时间戳
+- `duration` (number) - 时间间隔（纳秒）
+**返回值**: number - 新的 Unix 时间戳  
+
+#### addDays(timestamp: number, days: number): number
+**功能**: 添加天数  
+**返回值**: number - 新的 Unix 时间戳  
+
+#### addHours(timestamp: number, hours: number): number
+**功能**: 添加小时  
+**返回值**: number - 新的 Unix 时间戳  
+
+#### addMinutes(timestamp: number, minutes: number): number
+**功能**: 添加分钟  
+**返回值**: number - 新的 Unix 时间戳  
+
+#### addSeconds(timestamp: number, seconds: number): number
+**功能**: 添加秒数  
+**返回值**: number - 新的 Unix 时间戳  
+
+### 时间比较
+
+#### isBefore(time1: number, time2: number): boolean
+**功能**: 判断时间1是否在时间2之前  
+**返回值**: boolean  
+
+#### isAfter(time1: number, time2: number): boolean
+**功能**: 判断时间1是否在时间2之后  
+**返回值**: boolean  
+
+#### diff(time1: number, time2: number): object
+**功能**: 计算时间差  
+**返回值**: object - 包含 seconds, minutes, hours, days  
+**示例**:
+```javascript
+const diff = time.diff(tomorrow, today);
+console.log(diff.days);  // 1
+```
+
+### 时区处理
+
+#### utc(timestamp: number): string
+**功能**: 转换为 UTC 时区  
+**返回值**: string - UTC 时间字符串  
+
+#### local(timestamp: number): string
+**功能**: 转换为本地时区  
+**返回值**: string - 本地时间字符串  
+
+#### inLocation(timestamp: number, location: string): string
+**功能**: 转换到指定时区  
+**参数**:
+- `timestamp` (number) - Unix 时间戳
+- `location` (string) - 时区名称（如 'Asia/Tokyo'）
+**返回值**: string - 指定时区的时间字符串  
+
+### 时间组件获取
+
+#### getYear(timestamp: number): number
+**功能**: 获取年份  
+
+#### getMonth(timestamp: number): number
+**功能**: 获取月份（1-12）  
+
+#### getDay(timestamp: number): number
+**功能**: 获取日期（1-31）  
+
+#### getHour(timestamp: number): number
+**功能**: 获取小时（0-23）  
+
+#### getMinute(timestamp: number): number
+**功能**: 获取分钟（0-59）  
+
+#### getSecond(timestamp: number): number
+**功能**: 获取秒数（0-59）  
+
+#### getWeekday(timestamp: number): object
+**功能**: 获取星期几  
+**返回值**: object - 包含 number (0-6) 和 name (英文名称)  
+
+### 时间创建
+
+#### create(year: number, month: number, day: number, hour?: number, minute?: number, second?: number): number
+**功能**: 创建时间  
+**参数**: 年、月、日、时、分、秒  
+**返回值**: number - Unix 时间戳  
+**示例**:
+```javascript
+const christmas = time.create(2024, 12, 25, 18, 30, 0);
+```
+
+#### fromUnix(timestamp: number): object
+**功能**: 从 Unix 时间戳创建时间对象  
+**返回值**: object - 包含 unix, iso, year, month, day, hour, minute, second, weekday  
+
+#### fromUnixMilli(milliseconds: number): object
+**功能**: 从毫秒时间戳创建时间对象  
+**返回值**: object - 时间对象  
+
+### Ticker 定时器
+
+#### setInterval(callback: function, interval: number): number
+**功能**: 设置周期性定时器（类似 JavaScript 的 setInterval）  
+**参数**:
+- `callback` (function) - 回调函数
+- `interval` (number) - 时间间隔（毫秒）
+**返回值**: number - 定时器 ID  
+**示例**:
+```javascript
+const timerId = time.setInterval(() => {
+  console.log('每秒执行');
+}, 1000);
+
+// 停止定时器
+time.clearInterval(timerId);
+```
+
+#### clearInterval(timerId: number): void
+**功能**: 清除定时器  
+**参数**: `timerId` (number) - 定时器 ID  
+
+#### createTicker(interval: number): Ticker
+**功能**: 创建 Ticker 对象  
+**参数**: `interval` (number) - 时间间隔（毫秒）  
+**返回值**: Ticker 对象  
+**示例**:
+```javascript
+const ticker = time.createTicker(500);
+
+ticker.tick(() => {
+  console.log('Tick!');
+});
+
+// 停止 ticker
+ticker.stop();
+
+// 重置间隔
+ticker.reset(1000);
+```
+
+### Ticker 对象方法
+
+#### tick(callback: function): void
+**功能**: 注册 Tick 回调函数  
+**参数**: `callback` (function) - 每次 tick 时执行的回调  
+
+#### stop(): void
+**功能**: 停止 Ticker  
+
+#### reset(interval: number): void
+**功能**: 重置 Ticker 间隔  
+**参数**: `interval` (number) - 新的时间间隔（毫秒）  
+
+### 常量
+
+#### FORMAT 格式常量
+```javascript
+time.FORMAT.RFC3339      // "2006-01-02T15:04:05Z07:00"
+time.FORMAT.RFC3339Nano  // RFC3339 含纳秒
+time.FORMAT.RFC822       // RFC822 格式
+time.FORMAT.RFC1123      // RFC1123 格式
+time.FORMAT.DateTime     // "2006-01-02 15:04:05"
+time.FORMAT.Date         // "2006-01-02"
+time.FORMAT.Time         // "15:04:05"
+time.FORMAT.Kitchen      // "3:04PM"
+```
+
+#### UNIT 时间单位常量
+```javascript
+time.UNIT.NANOSECOND     // 纳秒
+time.UNIT.MICROSECOND    // 微秒
+time.UNIT.MILLISECOND    // 毫秒
+time.UNIT.SECOND         // 秒
+time.UNIT.MINUTE         // 分钟
+time.UNIT.HOUR           // 小时
+```
+
+---
 
 ### Database 对象方法
 
