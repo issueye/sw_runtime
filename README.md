@@ -433,6 +433,81 @@ console.log(path.extname('test.js'));         // .js
 
 ## 🚀 使用示例
 
+### 命令行工具
+
+SW Runtime 提供完整的 CLI 工具，支持多种操作：
+
+#### 运行脚本
+
+```bash
+# 运行 JavaScript 文件
+sw_runtime run app.js
+
+# 运行 TypeScript 文件
+sw_runtime run app.ts
+
+# 使用选项
+sw_runtime run app.ts --clear-cache  # 清除模块缓存
+```
+
+#### 执行代码片段
+
+```bash
+# 执行 JavaScript 代码
+sw_runtime eval "console.log('Hello, World!')"
+
+# 执行复杂代码
+sw_runtime eval "const x = 10; const y = 20; console.log(x + y)"
+
+# 使用 Promise
+sw_runtime eval "Promise.resolve(42).then(v => console.log(v))"
+```
+
+#### 打包脚本 🆕
+
+```bash
+# 基本打包
+sw_runtime bundle app.js
+
+# 指定输出文件
+sw_runtime bundle app.js -o dist/bundle.js
+
+# 压缩代码（70%+ 体积减少）
+sw_runtime bundle app.js -o app.min.js --minify
+
+# 生成 source map
+sw_runtime bundle app.ts --sourcemap
+
+# 详细输出
+sw_runtime bundle app.js -v
+
+# 排除特定文件
+sw_runtime bundle app.js --exclude utils.js,test.js
+```
+
+详细文档请参阅：[docs/BUNDLE_GUIDE.md](docs/BUNDLE_GUIDE.md)
+
+**打包功能特性：**
+- ✅ 自动依赖解析 - 递归分析所有 `require()` 依赖
+- ✅ TypeScript 支持 - 自动编译 `.ts` 文件
+- ✅ 内置模块排除 - 智能排除运行时可用的内置模块
+- ✅ 代码压缩 - 70%+ 的压缩率
+- ✅ Source Map - 支持生成调试映射
+
+#### 查看信息
+
+```bash
+# 显示版本
+sw_runtime version
+
+# 显示运行时信息
+sw_runtime info
+
+# 查看帮助
+sw_runtime --help
+sw_runtime bundle --help
+```
+
 ### HTTP 客户端示例
 
 ```javascript

@@ -28,6 +28,7 @@ var rootCmd = &cobra.Command{
   sw_runtime run app.ts                   运行 TypeScript 脚本
   sw_runtime run app.js                   运行 JavaScript 脚本
   sw_runtime eval "console.log('Hello')"  执行 JavaScript 代码
+  sw_runtime bundle app.js -o dist.js     打包多个脚本
   sw_runtime version                      显示版本信息`,
 	Version: version,
 }
