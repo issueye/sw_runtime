@@ -12,6 +12,7 @@
 - [httpserver/server - HTTP服务器模块](#httpserverserver---http服务器模块)
 - [websocket/ws - WebSocket模块](#websocketws---websocket模块)
 - [net - 网络模块](#net---网络模块)
+- [proxy - 代理模块](#proxy---代理模块)
 - [redis - Redis客户端模块](#redis---redis客户端模块)
 - [sqlite - SQLite数据库模块](#sqlite---sqlite数据库模块)
 - [exec/child_process - 进程执行模块](#execchild_process---进程执行模块)
@@ -747,6 +748,139 @@ socket.bind('0', '0.0.0.0').then(() => {
   socket.on('message', (msg, rinfo) => {
     console.log('收到回复:', msg);
   });
+});
+```
+
+---
+
+## proxy - 代理模块
+
+### createHTTPProxy(targetURL: string): HTTPProxy
+**功能**: 创建 HTTP/HTTPS 代理服务器  
+**参数**:
+- `targetURL` (string) - 目标服务器 URL（如 'https://api.example.com'）
+**返回值**: HTTPProxy 对象  
+**示例**:
+```javascript
+const proxy = require('proxy');
+const httpProxy = proxy.createHTTPProxy('https://httpbin.org');
+```
+
+### createTCPProxy(target: string): TCPProxy
+**功能**: 创建 TCP 代理服务器  
+**参数**:
+- `target` (string) - 目标服务器地址 (如 'localhost:6379')
+**返回值**: TCPProxy 对象  
+**示例**:
+```javascript
+const proxy = require('proxy');
+const tcpProxy = proxy.createTCPProxy('localhost:6379');
+```
+
+### HTTPProxy 对象方法
+
+#### on(event: string, handler: function): void
+**功能**: 注册事件处理器  
+**参数**:
+- `event` (string) - 事件名称
+- `handler` (function) - 事件处理函数
+
+**支持的事件**:
+- `'request'`: 接收到请求 - `handler(req: {method: string, url: string, path: string, host: string, remoteAddr: string, headers: object})`
+- `'response'`: 收到响应 - `handler(resp: {status: number, statusText: string, headers: object})`
+- `'error'`: 代理错误 - `handler(err: {message: string, url: string})`
+
+#### listen(port: string|number, callback?: function): Promise<string>
+**功能**: 启动 HTTP 代理服务器  
+**参数**:
+- `port` (string|number) - 监听端口
+- `callback` (function, 可选) - 启动成功回调
+**返回值**: Promise<string> - 解析为启动消息  
+
+#### close(): Promise<string>
+**功能**: 关闭 HTTP 代理服务器  
+**返回值**: Promise<string>  
+
+### TCPProxy 对象方法
+
+#### on(event: string, handler: function): void
+**功能**: 注册事件处理器  
+**参数**:
+- `event` (string) - 事件名称
+- `handler` (function) - 事件处理函数
+
+**支持的事件**:
+- `'connection'`: 新连接建立 - `handler(conn: {remoteAddr: string, target: string})`
+- `'data'`: 数据传输 - `handler(data: {direction: string, bytes: number})`
+- `'close'`: 连接关闭 - `handler()`
+- `'error'`: 代理错误 - `handler(err: {message: string, direction?: string})`
+
+#### listen(port: string|number, callback?: function): Promise<string>
+**功能**: 启动 TCP 代理服务器  
+**参数**:
+- `port` (string|number) - 监听端口
+- `callback` (function, 可选) - 启动成功回调
+**返回值**: Promise<string> - 解析为启动消息  
+
+#### close(): Promise<string>
+**功能**: 关闭 TCP 代理服务器  
+**返回值**: Promise<string>  
+
+### 示例代码
+
+#### HTTP 代理示例
+```javascript
+const proxy = require('proxy');
+
+// 创建 HTTP 代理
+const httpProxy = proxy.createHTTPProxy('https://api.github.com');
+
+// 监听请求
+httpProxy.on('request', (req) => {
+  console.log(`${req.method} ${req.path}`);
+});
+
+// 监听响应
+httpProxy.on('response', (resp) => {
+  console.log(`Status: ${resp.status}`);
+});
+
+// 监听错误
+httpProxy.on('error', (err) => {
+  console.error('Proxy error:', err.message);
+});
+
+// 启动代理
+httpProxy.listen('8080').then(() => {
+  console.log('HTTP Proxy running on port 8080');
+});
+```
+
+#### TCP 代理示例
+```javascript
+const proxy = require('proxy');
+
+// 创建 TCP 代理
+const tcpProxy = proxy.createTCPProxy('localhost:6379');
+
+// 监听连接
+tcpProxy.on('connection', (conn) => {
+  console.log('New connection:', conn.remoteAddr);
+});
+
+// 监听数据传输
+tcpProxy.on('data', (data) => {
+  console.log(`${data.direction}: ${data.bytes} bytes`);
+});
+
+// 监听关闭
+tcpProxy.on('close', () => {
+  console.log('Connection closed');
+});
+
+// 启动代理
+tcpProxy.listen('6380').then(() => {
+  console.log('TCP Proxy running on port 6380');
 });
 ```
 

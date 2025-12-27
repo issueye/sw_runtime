@@ -45,6 +45,7 @@ func (m *Manager) registerBuiltinModules() {
 	m.modules["websocket"] = NewWebSocketModule(m.vm)
 	m.modules["ws"] = NewWebSocketModule(m.vm) // 简短别名
 	m.modules["net"] = NewNetModule(m.vm)
+	m.modules["proxy"] = NewProxyModule(m.vm)
 }
 
 // GetModule 获取内置模块

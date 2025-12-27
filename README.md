@@ -375,6 +375,56 @@ udpClient.send('Hello UDP!\n', '9090', 'localhost')
   .then(() => console.log('消息已发送'));
 ```
 
+### 🔄 代理模块 (`proxy`)
+
+- **HTTP 代理**: 反向代理 HTTP/HTTPS 请求
+- **TCP 代理**: 透明 TCP 连接转发
+- **事件驱动**: 基于事件的异步编程模式
+- **自动处理**: HTTPS 自动处理、连接池管理
+- **监控统计**: 请求/响应拦截、数据传输统计
+
+```javascript
+const proxy = require('proxy');
+
+// HTTP 代理服务器
+const httpProxy = proxy.createHTTPProxy('https://api.github.com');
+
+httpProxy.on('request', (req) => {
+  console.log(`请求: ${req.method} ${req.path}`);
+});
+
+httpProxy.on('response', (resp) => {
+  console.log(`响应: ${resp.status}`);
+});
+
+httpProxy.on('error', (err) => {
+  console.error('代理错误:', err.message);
+});
+
+httpProxy.listen('8080').then(() => {
+  console.log('HTTP 代理启动在端口 8080');
+});
+
+// TCP 代理服务器
+const tcpProxy = proxy.createTCPProxy('localhost:6379');
+
+tcpProxy.on('connection', (conn) => {
+  console.log('新连接:', conn.remoteAddr);
+});
+
+tcpProxy.on('data', (data) => {
+  console.log(`${data.direction}: ${data.bytes} 字节`);
+});
+
+tcpProxy.on('close', () => {
+  console.log('连接关闭');
+});
+
+tcpProxy.listen('6380').then(() => {
+  console.log('TCP 代理启动在端口 6380');
+});
+```
+
 ### 🔴 Redis 客户端模块 (`redis`)
 
 - **连接管理**: 支持连接配置、认证、数据库选择
@@ -671,6 +721,7 @@ redisExample().catch(console.error);
 
 - **API 服务**: 内置 HTTP 客户端，轻松调用外部 API
 - **网络服务**: TCP/UDP 服务器和客户端，支持实时通信
+- **代理服务**: HTTP/TCP 代理服务器，请求转发和监控
 - **数据缓存**: Redis 客户端支持高性能数据缓存
 - **数据库应用**: SQLite 支持轻量级数据存储和查询
 - **服务端脚本**: 替代 Node.js 的轻量级方案
@@ -681,6 +732,7 @@ redisExample().catch(console.error);
 - **爬虫和数据采集**: HTTP 客户端 + 数据处理
 - **实时数据处理**: Redis + SQLite + 压缩 + 加密
 - **网络通信**: TCP/UDP 协议应用、自定义协议实现
+- **反向代理**: API 网关、负载均衡前端、服务路由
 
 ## 🔄 扩展性
 
@@ -691,4 +743,4 @@ redisExample().catch(console.error);
 manager.RegisterModule("mymodule", NewMyModule(vm))
 ```
 
-这是一个企业级的 JavaScript/TypeScript 运行时，提供了完整的模块系统、HTTP/WebSocket/TCP/UDP 网络功能、Redis/SQLite 客户端、加解密、压缩、文件操作等功能，适合各种服务端应用场景。
+这是一个企业级的 JavaScript/TypeScript 运行时，提供了完整的模块系统、HTTP/HTTPS/WebSocket/TCP/UDP/Proxy 网络功能、Redis/SQLite 客户端、加解密、压缩、文件操作等功能，适合各种服务端应用场景。
