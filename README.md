@@ -25,12 +25,19 @@ sw_runtime/
 │       ├── crypto.go         # 加密功能
 │       └── compression.go    # 压缩功能
 ├── examples/                  # 示例文件
-│   ├── crypto-demo.ts        # 加密功能演示
-│   ├── compression-demo.ts   # 压缩功能演示
-│   ├── fs-demo.ts           # 文件系统演示
-│   ├── http-demo.ts         # HTTP 客户端演示
-│   ├── redis-demo.ts        # Redis 客户端演示
-│   └── sqlite-demo.ts       # SQLite 数据库演示
+│   ├── 01-basic/            # 基础示例（TypeScript、ES6、模块）
+│   ├── 02-crypto/           # 加密功能演示
+│   ├── 03-compression/      # 压缩功能演示
+│   ├── 04-fs/               # 文件系统演示
+│   ├── 05-http-client/      # HTTP 客户端演示
+│   ├── 06-http-server/      # HTTP 服务器演示
+│   ├── 07-https/            # HTTPS 服务器演示
+│   ├── 08-websocket/        # WebSocket 示例
+│   ├── 09-tcp/              # TCP 网络示例
+│   ├── 10-udp/              # UDP 网络示例
+│   ├── 11-redis/            # Redis 客户端演示
+│   ├── 12-sqlite/           # SQLite 数据库演示
+│   └── 13-exec/             # 进程执行演示
 └── [测试文件...]
 ```
 
@@ -130,7 +137,7 @@ client.get('https://api.example.com/data')
   .then(response => console.log(response.data));
 ```
 
-### 🚀 HTTP 服务器模块 (`httpserver` / `server`)
+### 🚀 HTTP/HTTPS 服务器模块 (`httpserver` / `server`)
 
 - **路由系统**: 支持 GET, POST, PUT, DELETE 等 HTTP 方法
 - **中间件支持**: Express 风格的中间件链
@@ -139,6 +146,7 @@ client.get('https://api.example.com/data')
 - **文件服务**: sendFile、download 方法,自动 MIME 类型检测
 - **静态文件**: 内置静态文件服务器
 - **WebSocket**: 实时双向通信支持
+- **HTTPS 支持**: 内置 SSL/TLS 支持，安全加密通信
 - **Promise 支持**: 异步启动和关闭
 
 ```javascript
@@ -204,6 +212,12 @@ app.ws('/chat', (ws) => {
 app.listen('3000')
   .then(result => {
     console.log('服务器启动成功:', result);
+  });
+
+// 或者启动 HTTPS 服务器
+app.listenTLS('8443', './certs/server.crt', './certs/server.key')
+  .then(() => {
+    console.log('HTTPS 服务器启动在 https://localhost:8443');
   });
 ```
 

@@ -134,6 +134,7 @@ func (h *HTTPServerModule) createServerObject(server *HTTPServer) goja.Value {
 
 	// 服务器控制
 	obj.Set("listen", h.createListenHandler(server))
+	obj.Set("listenTLS", h.createListenTLSHandler(server))
 	obj.Set("close", h.createCloseHandler(server))
 
 	return obj
@@ -282,6 +283,67 @@ func (h *HTTPServerModule) createListenHandler(server *HTTPServer) func(goja.Fun
 
 			// 启动服务器
 			if err := server.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+				atomic.AddInt32(&httpServerRunning, -1)
+				reject(h.vm.NewGoError(err))
+			}
+		}()
+
+		return h.vm.ToValue(promise)
+	}
+}
+
+// createListenTLSHandler 创建 HTTPS 监听处理器
+func (h *HTTPServerModule) createListenTLSHandler(server *HTTPServer) func(goja.FunctionCall) goja.Value {
+	return func(call goja.FunctionCall) goja.Value {
+		if len(call.Arguments) < 3 {
+			panic(h.vm.NewTypeError("listenTLS requires port, certFile, and keyFile"))
+		}
+
+		port := call.Arguments[0].String()
+		if !strings.Contains(port, ":") {
+			port = ":" + port
+		}
+
+		certFile := call.Arguments[1].String()
+		keyFile := call.Arguments[2].String()
+
+		var callback goja.Value
+		if len(call.Arguments) > 3 {
+			if _, ok := goja.AssertFunction(call.Arguments[3]); ok {
+				callback = call.Arguments[3]
+			}
+		}
+
+		promise, resolve, reject := h.vm.NewPromise()
+
+		// 标记有 HTTP 服务器在运行
+		atomic.AddInt32(&httpServerRunning, 1)
+
+		go func() {
+			server.server = &http.Server{
+				Addr:    port,
+				Handler: server.mux,
+			}
+
+			h.mutex.Lock()
+			h.servers[port] = server
+			h.mutex.Unlock()
+
+			// 调用回调函数
+			if callback != nil {
+				if fn, ok := goja.AssertFunction(callback); ok {
+					_, err := fn(goja.Undefined())
+					if err != nil {
+						// 忽略回调函数中的错误，不影响服务器启动
+						fmt.Printf("Callback error: %v\n", err)
+					}
+				}
+			}
+
+			resolve(h.vm.ToValue(fmt.Sprintf("HTTPS Server listening on %s", port)))
+
+			// 启动 HTTPS 服务器
+			if err := server.server.ListenAndServeTLS(certFile, keyFile); err != nil && err != http.ErrServerClosed {
 				atomic.AddInt32(&httpServerRunning, -1)
 				reject(h.vm.NewGoError(err))
 			}

@@ -352,11 +352,25 @@ import('./module.js').then(mod => console.log(mod));
 ### HTTPServer 对象方法
 
 #### listen(port: string|number, callback?: function): Promise<string>
-**功能**: 启动服务器监听指定端口  
+**功能**: 启动 HTTP 服务器监听指定端口  
 **参数**:
 - `port` (string|number) - 端口号
 - `callback` (function, 可选) - 启动成功回调
 **返回值**: Promise - 解析为启动成功消息  
+
+#### listenTLS(port: string|number, certFile: string, keyFile: string, callback?: function): Promise<string>
+**功能**: 启动 HTTPS 服务器监听指定端口  
+**参数**:
+- `port` (string|number) - 端口号
+- `certFile` (string) - SSL 证书文件路径（.crt 或 .pem）
+- `keyFile` (string) - SSL 私钥文件路径（.key）
+- `callback` (function, 可选) - 启动成功回调
+**返回值**: Promise - 解析为启动成功消息  
+**示例**:
+```javascript
+app.listenTLS('8443', './certs/server.crt', './certs/server.key')
+  .then(() => console.log('HTTPS Server running'));
+```  
 
 #### use(middleware: function): void
 **功能**: 添加中间件  
@@ -1127,6 +1141,54 @@ app.static('./public', '/');
 app.listen('3000').then(() => {
   console.log('Server running on http://localhost:3000');
 });
+```
+
+### HTTPS 服务器示例
+```javascript
+const server = require('httpserver');
+
+const app = server.createServer();
+
+// 添加路由
+app.get('/', (req, res) => {
+  res.html('<h1>🔐 Welcome to HTTPS Server!</h1>');
+});
+
+app.get('/api/secure-data', (req, res) => {
+  res.json({
+    message: 'This is secure data',
+    encrypted: true,
+    timestamp: Date.now()
+  });
+});
+
+// 启动 HTTPS 服务器
+app.listenTLS('8443', './certs/server.crt', './certs/server.key')
+  .then(() => {
+    console.log('HTTPS Server running on https://localhost:8443');
+  })
+  .catch(err => {
+    console.error('Failed to start HTTPS server:', err.message);
+  });
+```
+
+### 混合 HTTP/HTTPS 服务器
+```javascript
+const server = require('httpserver');
+
+// HTTP 服务器
+const httpApp = server.createServer();
+httpApp.get('/', (req, res) => {
+  res.redirect('https://localhost:8443', 301);
+});
+httpApp.listen('8080');
+
+// HTTPS 服务器
+const httpsApp = server.createServer();
+httpsApp.get('/', (req, res) => {
+  res.html('<h1>🔒 Secure Connection</h1>');
+});
+httpsApp.listenTLS('8443', './certs/server.crt', './certs/server.key');
 ```
 
 ### 数据库操作示例
