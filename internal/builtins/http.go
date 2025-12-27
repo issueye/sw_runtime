@@ -15,8 +15,10 @@ import (
 
 // HTTPModule HTTP 客户端模块
 type HTTPModule struct {
-	vm     *goja.Runtime
-	client *http.Client
+	vm                  *goja.Runtime
+	client              *http.Client
+	requestInterceptor  goja.Callable
+	responseInterceptor goja.Callable
 }
 
 // NewHTTPModule 创建 HTTP 模块
@@ -48,6 +50,10 @@ func (h *HTTPModule) GetModule() *goja.Object {
 	// 创建客户端实例
 	obj.Set("createClient", h.createClient)
 
+	// 拦截器
+	obj.Set("setRequestInterceptor", h.setRequestInterceptor)
+	obj.Set("setResponseInterceptor", h.setResponseInterceptor)
+
 	// 状态码常量
 	statusCodes := h.vm.NewObject()
 	statusCodes.Set("OK", 200)
@@ -76,16 +82,20 @@ type HTTPResponse struct {
 
 // HTTPConfig HTTP 请求配置
 type HTTPConfig struct {
-	Method  string                 `json:"method"`
-	URL     string                 `json:"url"`
-	Headers map[string]string      `json:"headers"`
-	Data    interface{}            `json:"data"`
-	Params  map[string]string      `json:"params"`
-	Timeout int                    `json:"timeout"`
-	Auth    map[string]string      `json:"auth"`
-	Proxy   string                 `json:"proxy"`
-	Cookies map[string]string      `json:"cookies"`
-	Config  map[string]interface{} `json:"config"`
+	Method            string                 `json:"method"`
+	URL               string                 `json:"url"`
+	Headers           map[string]string      `json:"headers"`
+	Data              interface{}            `json:"data"`
+	Params            map[string]string      `json:"params"`
+	Timeout           int                    `json:"timeout"`
+	Auth              map[string]string      `json:"auth"`
+	Proxy             string                 `json:"proxy"`
+	Cookies           map[string]string      `json:"cookies"`
+	Config            map[string]interface{} `json:"config"`
+	BeforeRequest     goja.Callable          `json:"-"`
+	AfterResponse     goja.Callable          `json:"-"`
+	TransformRequest  goja.Callable          `json:"-"`
+	TransformResponse goja.Callable          `json:"-"`
 }
 
 // parseConfig 解析请求配置
@@ -140,6 +150,27 @@ func (h *HTTPModule) parseConfig(args []goja.Value) *HTTPConfig {
 					}
 				}
 			}
+			// 解析拦截器
+			if beforeRequest := configObj.Get("beforeRequest"); beforeRequest != nil && beforeRequest != goja.Undefined() {
+				if fn, ok := goja.AssertFunction(beforeRequest); ok {
+					config.BeforeRequest = fn
+				}
+			}
+			if afterResponse := configObj.Get("afterResponse"); afterResponse != nil && afterResponse != goja.Undefined() {
+				if fn, ok := goja.AssertFunction(afterResponse); ok {
+					config.AfterResponse = fn
+				}
+			}
+			if transformRequest := configObj.Get("transformRequest"); transformRequest != nil && transformRequest != goja.Undefined() {
+				if fn, ok := goja.AssertFunction(transformRequest); ok {
+					config.TransformRequest = fn
+				}
+			}
+			if transformResponse := configObj.Get("transformResponse"); transformResponse != nil && transformResponse != goja.Undefined() {
+				if fn, ok := goja.AssertFunction(transformResponse); ok {
+					config.TransformResponse = fn
+				}
+			}
 		}
 	}
 
@@ -148,6 +179,87 @@ func (h *HTTPModule) parseConfig(args []goja.Value) *HTTPConfig {
 
 // makeRequest 执行 HTTP 请求
 func (h *HTTPModule) makeRequest(config *HTTPConfig) (*HTTPResponse, error) {
+	// 应用全局请求拦截器
+	if h.requestInterceptor != nil {
+		configObj := h.vm.ToValue(config).ToObject(h.vm)
+		result, err := h.requestInterceptor(goja.Undefined(), configObj)
+		if err != nil {
+			return nil, err
+		}
+		// 更新配置
+		if resultObj := result.ToObject(h.vm); resultObj != nil {
+			if url := resultObj.Get("url"); url != nil && url != goja.Undefined() {
+				config.URL = url.String()
+			}
+			if headers := resultObj.Get("headers"); headers != nil && headers != goja.Undefined() {
+				headersObj := headers.ToObject(h.vm)
+				if headersObj != nil {
+					config.Headers = make(map[string]string)
+					for _, key := range headersObj.Keys() {
+						config.Headers[key] = headersObj.Get(key).String()
+					}
+				}
+			}
+			if data := resultObj.Get("data"); data != nil && data != goja.Undefined() {
+				config.Data = data.Export()
+			}
+			if params := resultObj.Get("params"); params != nil && params != goja.Undefined() {
+				paramsObj := params.ToObject(h.vm)
+				if paramsObj != nil {
+					config.Params = make(map[string]string)
+					for _, key := range paramsObj.Keys() {
+						config.Params[key] = paramsObj.Get(key).String()
+					}
+				}
+			}
+		}
+	}
+
+	// 应用 beforeRequest 拦截器
+	if config.BeforeRequest != nil {
+		configObj := h.vm.ToValue(config).ToObject(h.vm)
+		result, err := config.BeforeRequest(goja.Undefined(), configObj)
+		if err != nil {
+			return nil, err
+		}
+		// 更新配置
+		if resultObj := result.ToObject(h.vm); resultObj != nil {
+			if url := resultObj.Get("url"); url != nil && url != goja.Undefined() {
+				config.URL = url.String()
+			}
+			if headers := resultObj.Get("headers"); headers != nil && headers != goja.Undefined() {
+				headersObj := headers.ToObject(h.vm)
+				if headersObj != nil {
+					config.Headers = make(map[string]string)
+					for _, key := range headersObj.Keys() {
+						config.Headers[key] = headersObj.Get(key).String()
+					}
+				}
+			}
+			if data := resultObj.Get("data"); data != nil && data != goja.Undefined() {
+				config.Data = data.Export()
+			}
+			if params := resultObj.Get("params"); params != nil && params != goja.Undefined() {
+				paramsObj := params.ToObject(h.vm)
+				if paramsObj != nil {
+					config.Params = make(map[string]string)
+					for _, key := range paramsObj.Keys() {
+						config.Params[key] = paramsObj.Get(key).String()
+					}
+				}
+			}
+		}
+	}
+
+	// 应用 transformRequest 拦截器
+	if config.TransformRequest != nil && config.Data != nil {
+		result, err := config.TransformRequest(goja.Undefined(), h.vm.ToValue(config.Data))
+		if err != nil {
+			return nil, err
+		}
+		config.Data = result.Export()
+	}
+
 	// 构建 URL
 	reqURL := config.URL
 	if len(config.Params) > 0 {
@@ -250,6 +362,58 @@ func (h *HTTPModule) makeRequest(config *HTTPConfig) (*HTTPResponse, error) {
 		response.Data = jsonData
 	} else {
 		response.Data = string(respBody)
+	}
+
+	// 应用 transformResponse 拦截器
+	if config.TransformResponse != nil {
+		result, err := config.TransformResponse(goja.Undefined(), h.vm.ToValue(response.Data))
+		if err == nil {
+			response.Data = result.Export()
+		}
+	}
+
+	// 应用 afterResponse 拦截器
+	if config.AfterResponse != nil {
+		responseObj := h.vm.ToValue(response).ToObject(h.vm)
+		result, err := config.AfterResponse(goja.Undefined(), responseObj)
+		if err == nil {
+			if resultObj := result.ToObject(h.vm); resultObj != nil {
+				if data := resultObj.Get("data"); data != nil && data != goja.Undefined() {
+					response.Data = data.Export()
+				}
+				if headers := resultObj.Get("headers"); headers != nil && headers != goja.Undefined() {
+					headersObj := headers.ToObject(h.vm)
+					if headersObj != nil {
+						response.Headers = make(map[string]string)
+						for _, key := range headersObj.Keys() {
+							response.Headers[key] = headersObj.Get(key).String()
+						}
+					}
+				}
+			}
+		}
+	}
+
+	// 应用全局响应拦截器
+	if h.responseInterceptor != nil {
+		responseObj := h.vm.ToValue(response).ToObject(h.vm)
+		result, err := h.responseInterceptor(goja.Undefined(), responseObj)
+		if err == nil {
+			if resultObj := result.ToObject(h.vm); resultObj != nil {
+				if data := resultObj.Get("data"); data != nil && data != goja.Undefined() {
+					response.Data = data.Export()
+				}
+				if headers := resultObj.Get("headers"); headers != nil && headers != goja.Undefined() {
+					headersObj := headers.ToObject(h.vm)
+					if headersObj != nil {
+						response.Headers = make(map[string]string)
+						for _, key := range headersObj.Keys() {
+							response.Headers[key] = headersObj.Get(key).String()
+						}
+					}
+				}
+			}
+		}
 	}
 
 	return response, nil
@@ -438,4 +602,24 @@ func (h *HTTPModule) createClient(call goja.FunctionCall) goja.Value {
 	clientObj.Set("request", httpModule.request)
 
 	return clientObj
+}
+
+// setRequestInterceptor 设置请求拦截器
+func (h *HTTPModule) setRequestInterceptor(call goja.FunctionCall) goja.Value {
+	if len(call.Arguments) > 0 {
+		if fn, ok := goja.AssertFunction(call.Arguments[0]); ok {
+			h.requestInterceptor = fn
+		}
+	}
+	return goja.Undefined()
+}
+
+// setResponseInterceptor 设置响应拦截器
+func (h *HTTPModule) setResponseInterceptor(call goja.FunctionCall) goja.Value {
+	if len(call.Arguments) > 0 {
+		if fn, ok := goja.AssertFunction(call.Arguments[0]); ok {
+			h.responseInterceptor = fn
+		}
+	}
+	return goja.Undefined()
 }

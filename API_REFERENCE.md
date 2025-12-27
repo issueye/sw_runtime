@@ -307,7 +307,12 @@ import('./module.js').then(mod => console.log(mod));
     username?: string,
     password?: string,
     token?: string         // Bearer token
-  }
+  },
+  // 拦截器函数
+  beforeRequest?: (config) => config,       // 请求前修改配置
+  afterResponse?: (response) => response,   // 响应后处理
+  transformRequest?: (data) => data,        // 转换请求数据
+  transformResponse?: (data) => data        // 转换响应数据
 }
 ```
 
@@ -327,6 +332,32 @@ import('./module.js').then(mod => console.log(mod));
 **功能**: 创建自定义 HTTP 客户端实例  
 **参数**: 可选配置对象  
 **返回值**: 具有所有 HTTP 方法的客户端对象  
+
+### setRequestInterceptor(interceptor: function): void
+**功能**: 设置全局请求拦截器  
+**参数**: `interceptor` (function) - 拦截器函数 `(config) => config`  
+**示例**:
+```javascript
+http.setRequestInterceptor((config) => {
+  // 所有请求自动添加 token
+  config.headers['Authorization'] = 'Bearer ' + token;
+  return config;
+});
+```
+
+### setResponseInterceptor(interceptor: function): void
+**功能**: 设置全局响应拦截器  
+**参数**: `interceptor` (function) - 拦截器函数 `(response) => response`  
+**示例**:
+```javascript
+http.setResponseInterceptor((response) => {
+  // 统一处理响应数据
+  if (response.data.code === 0) {
+    response.data = response.data.data;
+  }
+  return response;
+});
+```
 
 ### STATUS_CODES 常量
 ```javascript
