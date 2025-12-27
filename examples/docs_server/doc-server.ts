@@ -1,20 +1,24 @@
 // doc-server.js - SW Runtime 文档服务器
 console.log('=== SW Runtime 文档服务器 ===');
 
-const server = require('httpserver');
-const fs = require('fs');
-const path = require('path');
+// @ts-ignore
+import * as server from 'httpserver';
+import * as fs from 'fs';
+import * as path from 'path';
+import { test } from './docs/test.ts';
 
 const app = server.createServer();
 
+test()
+
 // 中间件：请求日志
-app.use((req, res, next) => {
+app.use((req: any, res: any, next: any) => {
     console.log(`${new Date().toISOString()} ${req.method} ${req.path}`);
     next();
 });
 
 // 中间件：CORS
-app.use((req, res, next) => {
+app.use((req: any, res: any, next: any) => {
     res.header('Access-Control-Allow-Origin', '*');
     res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
     res.header('Access-Control-Allow-Headers', 'Content-Type');
@@ -25,68 +29,14 @@ app.use((req, res, next) => {
     next();
 });
 
-// 根路径
-// app.get('/', (req, res) => {
-//     res.redirect('/index.html');
-// });
-
-// 主文档页面
-// app.get('/index.html', (req, res) => {
-//     try {
-//         const filePath = path.join(__dirname, 'index.html');
-//         console.log('filePath', filePath);
-//         if (fs.existsSync(filePath)) {
-//             const content = fs.readFileSync(filePath, 'utf8');
-//             res.header('Content-Type', 'text/html; charset=utf-8');
-//             res.send(content);
-//         } else {
-//             res.html(getDefaultIndexHtml());
-//         }
-//     } catch (error) {
-//         res.html(getDefaultIndexHtml());
-//     }
-// });
-
 // 静态文件服务
 app.static('./docs/', '/docs/');
-
-// CSS 文件
-// app.get('/assets/css/styles.css', (req, res) => {
-//     try {
-//         const filePath = path.join(__dirname, 'assets', 'css', 'styles.css');
-//         if (fs.existsSync(filePath)) {
-//             const content = fs.readFileSync(filePath, 'utf8');
-//             res.header('Content-Type', 'text/css; charset=utf-8');
-//             res.send(content);
-//         } else {
-//             res.status(404).send('CSS file not found');
-//         }
-//     } catch (error) {
-//         res.status(500).send('Error reading CSS file');
-//     }
-// });
-
-// JavaScript 文件
-// app.get('/assets/js/app.js', (req, res) => {
-//     try {
-//         const filePath = path.join(__dirname, 'assets', 'js', 'app.js');
-//         if (fs.existsSync(filePath)) {
-//             const content = fs.readFileSync(filePath, 'utf8');
-//             res.header('Content-Type', 'application/javascript; charset=utf-8');
-//             res.send(content);
-//         } else {
-//             res.status(404).send('JS file not found');
-//         }
-//     } catch (error) {
-//         res.status(500).send('Error reading JS file');
-//     }
-// });
 
 // 模块文件 - 为每个模块创建单独的路由
 const moduleNames = ['overview', 'modules', 'crypto', 'compression', 'fs', 'http', 'httpserver', 'redis', 'sqlite', 'path', 'exec', 'examples'];
 
 moduleNames.forEach(moduleName => {
-    app.get('/modules/' + moduleName + '.html', (req, res) => {
+    app.get('/modules/' + moduleName + '.html', (req: any, res: any) => {
         try {
             const filePath = path.join(__dirname, 'modules', moduleName + '.html');
             if (fs.existsSync(filePath)) {
@@ -105,7 +55,7 @@ moduleNames.forEach(moduleName => {
 });
 
 // API: 模块列表
-app.get('/api/modules', (req, res) => {
+app.get('/api/modules', (req: any, res: any) => {
     const modules = [
         { name: 'overview', title: '运行时概述' },
         { name: 'modules', title: '模块系统' },
@@ -124,7 +74,7 @@ app.get('/api/modules', (req, res) => {
 });
 
 // API: 服务器状态
-app.get('/api/status', (req, res) => {
+app.get('/api/status', (req: any, res: any) => {
     res.json({
         status: 'running',
         name: 'SW Runtime 文档服务器',
@@ -134,7 +84,7 @@ app.get('/api/status', (req, res) => {
 });
 
 // 健康检查
-app.get('/health', (req, res) => {
+app.get('/health', (req: any, res: any) => {
     res.json({ status: 'healthy', timestamp: new Date().toISOString() });
 });
 

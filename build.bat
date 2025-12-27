@@ -13,7 +13,7 @@ REM 解析参数
 set CLEAN=0
 set TEST=0
 set BENCH=0
-set RELEASE=0
+set RELEASE=1
 set ALL=0
 
 :parse_args
