@@ -28,3 +28,4 @@ Thumbs.db
 *.swo
 *~
 examples/docs_server/pitaya/*
+*.txt
