@@ -44,6 +44,7 @@ func (m *Manager) registerBuiltinModules() {
 	m.modules["child_process"] = NewExecModule(m.vm) // Node.js 风格别名
 	m.modules["websocket"] = NewWebSocketModule(m.vm)
 	m.modules["ws"] = NewWebSocketModule(m.vm) // 简短别名
+	m.modules["net"] = NewNetModule(m.vm)
 }
 
 // GetModule 获取内置模块

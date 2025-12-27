@@ -299,6 +299,68 @@ client.on(event, handler)      // 注册事件监听器
 - 'pong': 收到 pong 响应
 ```
 
+### 🌐 网络模块 (`net`)
+
+- **TCP 服务器/客户端**: 支持 TCP 连接和通信
+- **UDP 套接字**: 支持 UDP 数据包收发
+- **事件驱动**: 基于事件的异步编程模式
+- **Promise 支持**: 所有异步操作返回 Promise
+
+```javascript
+const net = require('net');
+
+// TCP 服务器
+const tcpServer = net.createTCPServer();
+
+tcpServer.on('connection', (socket) => {
+  console.log('新客户端连接:', socket.remoteAddress);
+  
+  socket.on('data', (data) => {
+    console.log('收到:', data);
+    socket.write('回显: ' + data);
+  });
+  
+  socket.on('close', () => {
+    console.log('客户端断开');
+  });
+});
+
+tcpServer.listen('8080').then(() => {
+  console.log('TCP 服务器启动在端口 8080');
+});
+
+// TCP 客户端
+net.connectTCP('localhost:8080', { timeout: 5000 })
+  .then(socket => {
+    console.log('已连接到服务器');
+    
+    socket.on('data', (data) => {
+      console.log('收到:', data);
+    });
+    
+    socket.write('Hello Server!\n');
+  });
+
+// UDP 服务器
+const udpSocket = net.createUDPSocket('udp4');
+
+udpSocket.on('message', (msg, rinfo) => {
+  console.log('收到来自', rinfo.address + ':' + rinfo.port, '的消息:', msg);
+  
+  // 回复客户端
+  udpSocket.send('回复: ' + msg, rinfo.port.toString(), rinfo.address);
+});
+
+udpSocket.bind('9090', '0.0.0.0').then(() => {
+  console.log('UDP 服务器监听端口 9090');
+});
+
+// UDP 客户端
+const udpClient = net.createUDPSocket('udp4');
+udpClient.send('Hello UDP!\n', '9090', 'localhost')
+  .then(() => console.log('消息已发送'));
+```
+
 ### 🔴 Redis 客户端模块 (`redis`)
 
 - **连接管理**: 支持连接配置、认证、数据库选择
@@ -594,6 +656,7 @@ redisExample().catch(console.error);
 ## 🎯 适用场景
 
 - **API 服务**: 内置 HTTP 客户端，轻松调用外部 API
+- **网络服务**: TCP/UDP 服务器和客户端，支持实时通信
 - **数据缓存**: Redis 客户端支持高性能数据缓存
 - **数据库应用**: SQLite 支持轻量级数据存储和查询
 - **服务端脚本**: 替代 Node.js 的轻量级方案
@@ -603,6 +666,7 @@ redisExample().catch(console.error);
 - **自动化工具**: 跨平台脚本执行
 - **爬虫和数据采集**: HTTP 客户端 + 数据处理
 - **实时数据处理**: Redis + SQLite + 压缩 + 加密
+- **网络通信**: TCP/UDP 协议应用、自定义协议实现
 
 ## 🔄 扩展性
 
@@ -613,4 +677,4 @@ redisExample().catch(console.error);
 manager.RegisterModule("mymodule", NewMyModule(vm))
 ```
 
-这是一个企业级的 JavaScript/TypeScript 运行时，提供了完整的模块系统、HTTP/Redis/SQLite 客户端、加解密、压缩、文件操作等功能，适合各种服务端应用场景。
+这是一个企业级的 JavaScript/TypeScript 运行时，提供了完整的模块系统、HTTP/WebSocket/TCP/UDP 网络功能、Redis/SQLite 客户端、加解密、压缩、文件操作等功能，适合各种服务端应用场景。
