@@ -65,6 +65,7 @@ func TestIntegrationBasicApp(t *testing.T) {
 	}
 
 	runner := runtime.New()
+	defer runner.Close()
 	err = runner.RunFile(appFile)
 	if err != nil {
 		t.Fatalf("Failed to run integration app: %v", err)
@@ -85,6 +86,7 @@ func TestIntegrationBasicApp(t *testing.T) {
 
 func TestIntegrationAsyncOperations(t *testing.T) {
 	runner := runtime.New()
+	defer runner.Close()
 
 	code := `
 		let asyncResults = {
@@ -265,6 +267,7 @@ func TestIntegrationModuleInteraction(t *testing.T) {
 	os.Chdir(tempDir)
 
 	runner := runtime.New()
+	defer runner.Close()
 	err := runner.RunFile("main.ts")
 	if err != nil {
 		t.Fatalf("Failed to run module integration test: %v", err)
@@ -278,6 +281,7 @@ func TestIntegrationModuleInteraction(t *testing.T) {
 
 func TestIntegrationErrorRecovery(t *testing.T) {
 	runner := runtime.New()
+	defer runner.Close() // 添加 Close 确保资源清理
 
 	code := `
 		let errorResults = {
@@ -453,6 +457,7 @@ func TestIntegrationComplexApplication(t *testing.T) {
 	}
 
 	runner := runtime.New()
+	defer runner.Close()
 	err = runner.RunFile(appFile)
 	if err != nil {
 		t.Fatalf("Failed to run complex application: %v", err)

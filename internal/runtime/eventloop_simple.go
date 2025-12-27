@@ -48,8 +48,8 @@ func NewSimpleEventLoop(vm *goja.Runtime) *SimpleEventLoop {
 	ctx, cancel := context.WithCancel(context.Background())
 	el := &SimpleEventLoop{
 		vm:        vm,
-		timers:    make(map[int]*timerEntry, 16),    // 预分配容量
-		intervals: make(map[int]*intervalEntry, 16), // 预分配容量
+		timers:    make(map[int]*timerEntry, 64),    // 增大初始容量,减少扩容开销
+		intervals: make(map[int]*intervalEntry, 32), // 增大初始容量
 		stopChan:  make(chan struct{}, 1),           // 带缓冲,避免阻塞
 		ctx:       ctx,
 		cancel:    cancel,
@@ -119,15 +119,15 @@ func (el *SimpleEventLoop) WaitAndProcess() {
 	defer signal.Stop(sigChan)
 
 	// 给异步任务一些启动时间
-	time.Sleep(50 * time.Millisecond)
+	time.Sleep(10 * time.Millisecond)
 
-	// 使用 ticker 代替频繁的 time.Sleep
-	ticker := time.NewTicker(10 * time.Millisecond)
+	// 使用更高频率的 ticker 提升响应速度
+	ticker := time.NewTicker(5 * time.Millisecond)
 	defer ticker.Stop()
 
-	// 空闲检测计数器
+	// 空闲检测计数器 - 优化退出条件
 	idleCount := 0
-	const maxIdleChecks = 5 // 50ms 检查周期 * 5 = 250ms 无任务后退出
+	const maxIdleChecks = 3 // 5ms × 3 = 15ms 无任务后快速退出
 
 	for el.running.Load() {
 		select {
@@ -142,24 +142,34 @@ func (el *SimpleEventLoop) WaitAndProcess() {
 			// 上下文取消
 			return
 		case <-ticker.C:
-			// 使用读锁提升性能
+			// 先检查长期运行任务(最快路径)
+			isLongLived := el.hasLongLived.Load()
+			if isLongLived {
+				idleCount = 0
+				continue
+			}
+
+			// 再检查 HTTP 服务器
+			hasHTTPServer := builtins.IsHTTPServerRunning()
+			if hasHTTPServer {
+				idleCount = 0
+				continue
+			}
+
+			// 检查活跃任务(无锁操作)
+			activeJobs := el.activeJobs.Load()
+			if activeJobs > 0 {
+				idleCount = 0
+				continue
+			}
+
+			// 最后才检查定时器(需要锁)
 			el.mu.RLock()
 			hasTimers := len(el.timers) > 0
 			hasIntervals := len(el.intervals) > 0
 			el.mu.RUnlock()
 
-			activeJobs := el.activeJobs.Load()
-			hasHTTPServer := builtins.IsHTTPServerRunning()
-			isLongLived := el.hasLongLived.Load()
-
-			// 如果有长期运行的任务(如 HTTP 服务器),持续运行
-			if isLongLived || hasHTTPServer {
-				idleCount = 0
-				continue
-			}
-
-			// 如果有活跃的定时器、间隔器或异步任务,继续等待
-			if hasTimers || hasIntervals || activeJobs > 0 {
+			if hasTimers || hasIntervals {
 				idleCount = 0
 				continue
 			}
@@ -167,7 +177,7 @@ func (el *SimpleEventLoop) WaitAndProcess() {
 			// 没有任何活跃任务,增加空闲计数
 			idleCount++
 			if idleCount >= maxIdleChecks {
-				// 确实没有任务了,退出
+				// 确实没有任务了,快速退出
 				return
 			}
 		}
@@ -198,25 +208,27 @@ func (el *SimpleEventLoop) SetTimeout(call goja.FunctionCall) goja.Value {
 
 	entry := &timerEntry{}
 	entry.timer = time.AfterFunc(time.Duration(delay)*time.Millisecond, func() {
-		// 检查是否已取消
+		// 快速路径：检查是否已取消
 		if entry.canceled.Load() {
 			return
 		}
 
-		// 使用 defer 和 recover 来处理可能的 panic
-		defer func() {
-			if r := recover(); r != nil {
-				// 记录错误但不影响其他操作
-			}
-			// 清理定时器
-			el.mu.Lock()
-			delete(el.timers, id)
-			el.mu.Unlock()
-			pool.GlobalMemoryMonitor.DecrementTimerCount()
+		// 优化：减少 defer 开销，直接执行清理
+		// 先执行回调
+		func() {
+			defer func() {
+				if r := recover(); r != nil {
+					// 记录错误但不影响清理
+				}
+			}()
+			fn(goja.Undefined())
 		}()
 
-		// 执行回调
-		fn(goja.Undefined())
+		// 然后清理资源
+		el.mu.Lock()
+		delete(el.timers, id)
+		el.mu.Unlock()
+		pool.GlobalMemoryMonitor.DecrementTimerCount()
 	})
 
 	el.mu.Lock()
@@ -302,20 +314,18 @@ func (el *SimpleEventLoop) SetInterval(call goja.FunctionCall) goja.Value {
 				// 上下文取消,退出
 				return
 			case <-entry.ticker.C:
-				// 检查是否已取消
+				// 快速路径：检查是否已取消
 				if entry.canceled.Load() {
 					return
 				}
 
-				// 执行回调,捕获 panic
-				func() {
-					defer func() {
-						if r := recover(); r != nil {
-							// 记录错误但继续运行
-						}
-					}()
-					fn(goja.Undefined())
+				// 优化：内联 panic 处理，减少函数调用开销
+				defer func() {
+					if r := recover(); r != nil {
+						// 记录错误但继续运行
+					}
 				}()
+				fn(goja.Undefined())
 			}
 		}
 	}()
