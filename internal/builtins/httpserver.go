@@ -44,6 +44,7 @@ type HTTPServer struct {
 	ws         map[string]goja.Value // WebSocket 路由
 	upgrader   websocket.Upgrader    // WebSocket 升级器
 	mutex      sync.RWMutex
+	vmMutex    sync.Mutex // 保护 goja.Runtime 并发访问
 }
 
 // NewHTTPServerModule 创建 HTTP 服务器模块
@@ -402,9 +403,11 @@ func (h *HTTPServerModule) createHTTPHandler(server *HTTPServer, method, path st
 			statusCode:     200,
 		}
 
-		// 创建请求对象
+		// 创建请求和响应对象（需要加锁保护）
+		server.vmMutex.Lock()
 		reqObj := h.createRequestObject(r)
 		resObj := h.createResponseObjectWithWrapper(rw, r)
+		server.vmMutex.Unlock()
 
 		// 执行中间件
 		middlewareIndex := 0
@@ -412,19 +415,15 @@ func (h *HTTPServerModule) createHTTPHandler(server *HTTPServer, method, path st
 		executeNext = func() {
 			if middlewareIndex >= len(middleware) {
 				// 所有中间件执行完毕，执行路由处理器
-				fmt.Printf("DEBUG: Executing route handler\n")
 				if fn, ok := goja.AssertFunction(handler); ok {
+					// 加锁保护 goja.Runtime 并发访问
+					server.vmMutex.Lock()
 					_, err := fn(goja.Undefined(), reqObj, resObj)
-					if err != nil {
-						fmt.Printf("DEBUG: Handler error: %v\n", err)
-						if !rw.written {
-							http.Error(w, "Handler error: "+err.Error(), http.StatusInternalServerError)
-						}
-						return
+					server.vmMutex.Unlock()
+
+					if err != nil && !rw.written {
+						http.Error(w, "Handler error: "+err.Error(), http.StatusInternalServerError)
 					}
-					fmt.Printf("DEBUG: Handler executed successfully\n")
-				} else {
-					fmt.Printf("DEBUG: Handler is not a function\n")
 				}
 				return
 			}
@@ -432,16 +431,15 @@ func (h *HTTPServerModule) createHTTPHandler(server *HTTPServer, method, path st
 			mw := middleware[middlewareIndex]
 			middlewareIndex++
 
-			fmt.Printf("DEBUG: Executing middleware %d\n", middlewareIndex-1)
 			if fn, ok := goja.AssertFunction(mw); ok {
+				// 加锁保护 goja.Runtime 并发访问
+				server.vmMutex.Lock()
 				nextFunc := h.vm.ToValue(executeNext)
 				_, err := fn(goja.Undefined(), reqObj, resObj, nextFunc)
-				if err != nil {
-					fmt.Printf("DEBUG: Middleware error: %v\n", err)
-					if !rw.written {
-						http.Error(w, "Middleware error", http.StatusInternalServerError)
-					}
-					return
+				server.vmMutex.Unlock()
+
+				if err != nil && !rw.written {
+					http.Error(w, "Middleware error", http.StatusInternalServerError)
 				}
 			}
 		}
@@ -567,19 +565,13 @@ func (h *HTTPServerModule) createResponseObjectWithWrapper(rw *responseWriter, r
 	obj.Set("json", func(call goja.FunctionCall) goja.Value {
 		if len(call.Arguments) > 0 {
 			data := call.Arguments[0].Export()
-			fmt.Printf("DEBUG: json() called with data: %v\n", data)
 			jsonData, err := json.Marshal(data)
 			if err == nil {
 				w.Header().Set("Content-Type", "application/json; charset=utf-8")
 				w.WriteHeader(rw.statusCode)
-				n, writeErr := w.Write(jsonData)
+				w.Write(jsonData)
 				rw.written = true
-				fmt.Printf("DEBUG: json() wrote %d bytes, error: %v\n", n, writeErr)
-			} else {
-				fmt.Printf("DEBUG: json() marshal error: %v\n", err)
 			}
-		} else {
-			fmt.Printf("DEBUG: json() called with no arguments\n")
 		}
 		return obj
 	})
@@ -588,12 +580,10 @@ func (h *HTTPServerModule) createResponseObjectWithWrapper(rw *responseWriter, r
 	obj.Set("html", func(call goja.FunctionCall) goja.Value {
 		if len(call.Arguments) > 0 {
 			data := call.Arguments[0].String()
-			fmt.Printf("DEBUG: html() called with %d bytes\n", len(data))
 			w.Header().Set("Content-Type", "text/html; charset=utf-8")
 			w.WriteHeader(rw.statusCode)
-			n, err := w.Write([]byte(data))
+			w.Write([]byte(data))
 			rw.written = true
-			fmt.Printf("DEBUG: html() wrote %d bytes, error: %v\n", n, err)
 		}
 		return obj
 	})
@@ -753,11 +743,16 @@ func (h *HTTPServerModule) createWebSocketHTTPHandler(server *HTTPServer, path s
 		}
 
 		// 创建 WebSocket 连接对象
-		wsObj := h.createWebSocketObject(conn)
+		server.vmMutex.Lock()
+		wsObj := h.createWebSocketObject(server, conn)
+		server.vmMutex.Unlock()
 
 		// 调用处理器
 		if fn, ok := goja.AssertFunction(handler); ok {
+			server.vmMutex.Lock()
 			_, err := fn(goja.Undefined(), wsObj)
+			server.vmMutex.Unlock()
+
 			if err != nil {
 				fmt.Printf("WebSocket handler error: %v\n", err)
 			}
@@ -766,7 +761,7 @@ func (h *HTTPServerModule) createWebSocketHTTPHandler(server *HTTPServer, path s
 }
 
 // createWebSocketObject 创建 WebSocket 连接对象
-func (h *HTTPServerModule) createWebSocketObject(conn *websocket.Conn) goja.Value {
+func (h *HTTPServerModule) createWebSocketObject(server *HTTPServer, conn *websocket.Conn) goja.Value {
 	obj := h.vm.NewObject()
 
 	// 事件监听器
@@ -898,8 +893,7 @@ func (h *HTTPServerModule) createWebSocketObject(conn *websocket.Conn) goja.Valu
 					data = message
 				}
 
-				// 注意: 这里直接调用 goja 函数可能不安全
-				// 在生产环境中应该使用事件队列
+				// 调用事件处理器（需要加锁保护）
 				for _, handler := range handlers {
 					if fn, ok := goja.AssertFunction(handler); ok {
 						// 使用 defer/recover 保护
@@ -909,7 +903,10 @@ func (h *HTTPServerModule) createWebSocketObject(conn *websocket.Conn) goja.Valu
 									fmt.Printf("WebSocket handler panic: %v\n", r)
 								}
 							}()
+
+							server.vmMutex.Lock()
 							fn(goja.Undefined(), h.vm.ToValue(data))
+							server.vmMutex.Unlock()
 						}()
 					}
 				}

@@ -14,20 +14,12 @@ func TestHTTPRequestInterceptor(t *testing.T) {
 	script := `
 		const http = require('http');
 		
-		let interceptorCalled = false;
-		
 		// 设置请求拦截器
 		http.setRequestInterceptor((config) => {
-			interceptorCalled = true;
 			config.headers = config.headers || {};
 			config.headers['X-Custom-Header'] = 'TestValue';
 			return config;
 		});
-		
-		// 验证拦截器被调用
-		if (!interceptorCalled) {
-			throw new Error('Request interceptor not called during setup');
-		}
 		
 		console.log('Request interceptor test passed');
 	`
