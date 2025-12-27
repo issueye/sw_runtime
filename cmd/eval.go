@@ -32,7 +32,7 @@ var evalCmd = &cobra.Command{
 		}
 
 		// 创建运行器
-		runner := runtime.New()
+		runner := runtime.NewOrPanic()
 		defer runner.Close()
 
 		// 执行代码

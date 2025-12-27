@@ -19,14 +19,19 @@ type Runner struct {
 }
 
 // New 创建新的运行器
-func New() *Runner {
+func New() (*Runner, error) {
 	vm := goja.New()
 	vm.SetFieldNameMapper(goja.TagFieldNameMapper("json", true))
 
 	loop := NewSimpleEventLoop(vm)
 
 	// 获取当前工作目录作为基础路径
-	basePath, _ := os.Getwd()
+	basePath, err := os.Getwd()
+	if err != nil {
+		// 如果无法获取当前目录，使用临时目录作为后备
+		basePath = os.TempDir()
+	}
+
 	moduleSystem := modules.NewSystem(vm, basePath)
 
 	r := &Runner{
@@ -39,6 +44,15 @@ func New() *Runner {
 	// 增加 Runner 计数
 	pool.GlobalMemoryMonitor.IncrementRunnerCount()
 
+	return r, nil
+}
+
+// NewOrPanic 创建新的运行器，出错时 panic（为了向后兼容）
+func NewOrPanic() *Runner {
+	r, err := New()
+	if err != nil {
+		panic(err)
+	}
 	return r
 }
 
@@ -94,7 +108,10 @@ func (r *Runner) setupBuiltins() {
 
 		// 异步加载模块
 		go func() {
-			currentDir, _ := os.Getwd()
+			currentDir, err := os.Getwd()
+			if err != nil {
+				currentDir = "."
+			}
 			module, err := r.modules.LoadModule(id, currentDir)
 			if err != nil {
 				reject(r.vm.NewGoError(err))
@@ -108,10 +125,11 @@ func (r *Runner) setupBuiltins() {
 
 	// 全局变量
 	r.vm.Set("global", r.vm.GlobalObject())
-	r.vm.Set("__dirname", func() string {
-		dir, _ := os.Getwd()
-		return dir
-	}())
+	dir, err := os.Getwd()
+	if err != nil {
+		dir = "."
+	}
+	r.vm.Set("__dirname", dir)
 	r.vm.Set("__filename", "")
 
 	// 启用 Promise

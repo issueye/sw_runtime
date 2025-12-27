@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/url"
@@ -11,12 +12,16 @@ import (
 	"time"
 
 	"github.com/dop251/goja"
+
+	"sw_runtime/internal/consts"
+	"sw_runtime/internal/security"
 )
 
 // HTTPModule HTTP 客户端模块
 type HTTPModule struct {
 	vm                  *goja.Runtime
 	client              *http.Client
+	urlValidator        *security.URLValidator
 	requestInterceptor  goja.Callable
 	responseInterceptor goja.Callable
 }
@@ -24,9 +29,10 @@ type HTTPModule struct {
 // NewHTTPModule 创建 HTTP 模块
 func NewHTTPModule(vm *goja.Runtime) *HTTPModule {
 	return &HTTPModule{
-		vm: vm,
+		vm:           vm,
+		urlValidator: security.NewURLValidator(), // 默认阻止内网访问
 		client: &http.Client{
-			Timeout: 30 * time.Second,
+			Timeout: consts.DefaultHTTPTimeout,
 		},
 	}
 }
@@ -54,19 +60,57 @@ func (h *HTTPModule) GetModule() *goja.Object {
 	obj.Set("setRequestInterceptor", h.setRequestInterceptor)
 	obj.Set("setResponseInterceptor", h.setResponseInterceptor)
 
+	// SSRF 保护配置
+	obj.Set("allowPrivateNetwork", h.allowPrivateNetwork)
+	obj.Set("addBlockedHost", h.addBlockedHost)
+	obj.Set("addBlockedCIDR", h.addBlockedCIDR)
+
 	// 状态码常量
 	statusCodes := h.vm.NewObject()
-	statusCodes.Set("OK", 200)
-	statusCodes.Set("CREATED", 201)
-	statusCodes.Set("NO_CONTENT", 204)
-	statusCodes.Set("BAD_REQUEST", 400)
-	statusCodes.Set("UNAUTHORIZED", 401)
-	statusCodes.Set("FORBIDDEN", 403)
-	statusCodes.Set("NOT_FOUND", 404)
-	statusCodes.Set("INTERNAL_SERVER_ERROR", 500)
+	statusCodes.Set("OK", consts.StatusOK)
+	statusCodes.Set("CREATED", consts.StatusCreated)
+	statusCodes.Set("NO_CONTENT", consts.StatusNoContent)
+	statusCodes.Set("BAD_REQUEST", consts.StatusBadRequest)
+	statusCodes.Set("UNAUTHORIZED", consts.StatusUnauthorized)
+	statusCodes.Set("FORBIDDEN", consts.StatusForbidden)
+	statusCodes.Set("NOT_FOUND", consts.StatusNotFound)
+	statusCodes.Set("INTERNAL_SERVER_ERROR", consts.StatusInternalServerError)
 	obj.Set("STATUS_CODES", statusCodes)
 
 	return obj
+}
+
+// allowPrivateNetwork 允许访问私有网络（仅用于开发环境）
+func (h *HTTPModule) allowPrivateNetwork(call goja.FunctionCall) goja.Value {
+	if len(call.Arguments) > 0 {
+		allow := call.Arguments[0].ToBoolean()
+		if allow {
+			h.urlValidator = security.NewURLValidatorWithPrivate()
+		} else {
+			h.urlValidator = security.NewURLValidator()
+		}
+	}
+	return goja.Undefined()
+}
+
+// addBlockedHost 添加阻止的主机
+func (h *HTTPModule) addBlockedHost(call goja.FunctionCall) goja.Value {
+	if len(call.Arguments) > 0 {
+		host := call.Arguments[0].String()
+		h.urlValidator.AddBlockedHost(host)
+	}
+	return goja.Undefined()
+}
+
+// addBlockedCIDR 添加阻止的 IP 网段
+func (h *HTTPModule) addBlockedCIDR(call goja.FunctionCall) goja.Value {
+	if len(call.Arguments) > 0 {
+		cidr := call.Arguments[0].String()
+		if err := h.urlValidator.AddBlockedCIDR(cidr); err != nil {
+			panic(h.vm.NewGoError(err))
+		}
+	}
+	return goja.Undefined()
 }
 
 // HTTPResponse HTTP 响应结构
@@ -179,6 +223,11 @@ func (h *HTTPModule) parseConfig(args []goja.Value) *HTTPConfig {
 
 // makeRequest 执行 HTTP 请求
 func (h *HTTPModule) makeRequest(config *HTTPConfig) (*HTTPResponse, error) {
+	// 验证 URL 安全性（防止 SSRF 攻击）
+	if err := h.urlValidator.Validate(config.URL); err != nil {
+		return nil, fmt.Errorf("URL validation failed: %w", err)
+	}
+
 	// 应用全局请求拦截器
 	if h.requestInterceptor != nil {
 		configObj := h.vm.ToValue(config).ToObject(h.vm)
@@ -190,6 +239,10 @@ func (h *HTTPModule) makeRequest(config *HTTPConfig) (*HTTPResponse, error) {
 		if resultObj := result.ToObject(h.vm); resultObj != nil {
 			if url := resultObj.Get("url"); url != nil && url != goja.Undefined() {
 				config.URL = url.String()
+				// 拦截器修改后也要验证 URL
+				if err := h.urlValidator.Validate(config.URL); err != nil {
+					return nil, fmt.Errorf("URL validation failed (after interceptor): %w", err)
+				}
 			}
 			if headers := resultObj.Get("headers"); headers != nil && headers != goja.Undefined() {
 				headersObj := headers.ToObject(h.vm)
@@ -226,6 +279,10 @@ func (h *HTTPModule) makeRequest(config *HTTPConfig) (*HTTPResponse, error) {
 		if resultObj := result.ToObject(h.vm); resultObj != nil {
 			if url := resultObj.Get("url"); url != nil && url != goja.Undefined() {
 				config.URL = url.String()
+				// beforeRequest 修改后也要验证 URL
+				if err := h.urlValidator.Validate(config.URL); err != nil {
+					return nil, fmt.Errorf("URL validation failed (after beforeRequest): %w", err)
+				}
 			}
 			if headers := resultObj.Get("headers"); headers != nil && headers != goja.Undefined() {
 				headersObj := headers.ToObject(h.vm)

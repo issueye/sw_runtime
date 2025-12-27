@@ -17,6 +17,8 @@ import (
 
 	"github.com/dop251/goja"
 	"github.com/gorilla/websocket"
+
+	"sw_runtime/internal/consts"
 )
 
 // 全局变量，标记是否有 HTTP 服务器在运行
@@ -36,15 +38,24 @@ type HTTPServerModule struct {
 
 // HTTPServer HTTP 服务器实例
 type HTTPServer struct {
-	server     *http.Server
-	mux        *http.ServeMux
-	vm         *goja.Runtime
-	routes     map[string]map[string]goja.Value // method -> path -> handler
-	middleware []goja.Value
-	ws         map[string]goja.Value // WebSocket 路由
-	upgrader   websocket.Upgrader    // WebSocket 升级器
-	mutex      sync.RWMutex
-	vmMutex    sync.Mutex // 保护 goja.Runtime 并发访问
+	server         *http.Server
+	mux            *http.ServeMux
+	vm             *goja.Runtime
+	routes         map[string]map[string]goja.Value // method -> path -> handler
+	middleware     []goja.Value
+	ws             map[string]goja.Value // WebSocket 路由
+	upgrader       websocket.Upgrader    // WebSocket 升级器
+	mutex          sync.RWMutex
+	vmMutex        sync.Mutex // 保护 goja.Runtime 并发访问
+
+	// WebSocket 安全配置
+	wsAllowedOrigins []string
+	wsAllowAll       bool // 默认 false，生产环境应该设为 false
+
+	// 请求处理队列（用于保护 goja.Runtime 并发访问）
+	requestChan chan func(*goja.Runtime)
+	wg          sync.WaitGroup
+	stopChan    chan struct{}
 }
 
 // NewHTTPServerModule 创建 HTTP 服务器模块
@@ -84,10 +95,14 @@ func (h *HTTPServerModule) GetModule() *goja.Object {
 // createServer 创建 HTTP 服务器
 func (h *HTTPServerModule) createServer(call goja.FunctionCall) goja.Value {
 	server := &HTTPServer{
-		mux:        http.NewServeMux(),
-		vm:         h.vm,
-		routes:     make(map[string]map[string]goja.Value),
-		middleware: make([]goja.Value, 0),
+		mux:             http.NewServeMux(),
+		vm:              h.vm,
+		routes:          make(map[string]map[string]goja.Value),
+		middleware:      make([]goja.Value, 0),
+		wsAllowedOrigins: []string{},
+		wsAllowAll:       false, // 默认不允许所有来源
+		requestChan:      make(chan func(*goja.Runtime), 100),
+		stopChan:         make(chan struct{}),
 	}
 
 	// 初始化路由映射
@@ -99,15 +114,55 @@ func (h *HTTPServerModule) createServer(call goja.FunctionCall) goja.Value {
 	server.routes["HEAD"] = make(map[string]goja.Value)
 	server.routes["OPTIONS"] = make(map[string]goja.Value)
 
-	// 初始化 WebSocket
+	// 初始化 WebSocket（安全的 CORS 配置）
 	server.ws = make(map[string]goja.Value)
 	server.upgrader = websocket.Upgrader{
 		CheckOrigin: func(r *http.Request) bool {
-			return true // 允许所有来源,生产环境应该限制
+			return server.checkWebSocketOrigin(r)
 		},
+		ReadBufferSize:  consts.WSReadBufferSize,
+		WriteBufferSize: consts.WSWriteBufferSize,
 	}
 
+	// 启动 VM 处理器
+	server.startVMProcessor()
+
 	return h.createServerObject(server)
+}
+
+// checkWebSocketOrigin 检查 WebSocket 请求的来源是否允许
+func (s *HTTPServer) checkWebSocketOrigin(r *http.Request) bool {
+	// 如果明确允许所有来源（仅用于开发环境）
+	if s.wsAllowAll {
+		return true
+	}
+
+	// 获取请求的 Origin
+	origin := r.Header.Get("Origin")
+
+	// 如果没有 Origin 头，拒绝连接
+	if origin == "" {
+		return false
+	}
+
+	// 检查是否在允许列表中
+	for _, allowed := range s.wsAllowedOrigins {
+		if allowed == "*" {
+			return true // 允许所有来源
+		}
+		if origin == allowed {
+			return true
+		}
+		// 支持通配符前缀匹配，如 https://*.example.com
+		if strings.HasSuffix(allowed, "*") {
+			prefix := strings.TrimSuffix(allowed, "*")
+			if strings.HasPrefix(origin, prefix) {
+				return true
+			}
+		}
+	}
+
+	return false // 默认拒绝
 }
 
 // createServerObject 创建服务器对象
@@ -133,12 +188,73 @@ func (h *HTTPServerModule) createServerObject(server *HTTPServer) goja.Value {
 	// WebSocket 路由
 	obj.Set("ws", h.createWebSocketHandler(server))
 
+	// WebSocket 安全配置
+	obj.Set("setWSAllowedOrigins", h.createSetWSAllowedOrigins(server))
+	obj.Set("setWSAllowAll", h.createSetWSAllowAll(server))
+
 	// 服务器控制
 	obj.Set("listen", h.createListenHandler(server))
 	obj.Set("listenTLS", h.createListenTLSHandler(server))
 	obj.Set("close", h.createCloseHandler(server))
 
 	return obj
+}
+
+// startVMProcessor 启动 VM 处理器（串行化对 goja.Runtime 的访问）
+func (s *HTTPServer) startVMProcessor() {
+	s.wg.Add(1)
+	go func() {
+		defer s.wg.Done()
+		for {
+			select {
+			case fn := <-s.requestChan:
+				fn(s.vm)
+			case <-s.stopChan:
+				return
+			}
+		}
+	}()
+}
+
+// createSetWSAllowedOrigins 创建设置允许来源的方法
+func (h *HTTPServerModule) createSetWSAllowedOrigins(server *HTTPServer) func(goja.FunctionCall) goja.Value {
+	return func(call goja.FunctionCall) goja.Value {
+		server.wsAllowedOrigins = []string{}
+		server.wsAllowAll = false
+
+		if len(call.Arguments) > 0 {
+			if arg := call.Arguments[0]; arg.ExportType() != nil {
+				// 支持字符串数组或单个字符串
+				exported := arg.Export()
+				switch v := exported.(type) {
+				case []string:
+					server.wsAllowedOrigins = v
+				case []interface{}:
+					for _, item := range v {
+						if str, ok := item.(string); ok {
+							server.wsAllowedOrigins = append(server.wsAllowedOrigins, str)
+						}
+					}
+				case string:
+					server.wsAllowedOrigins = []string{v}
+				}
+			}
+		}
+
+		return goja.Undefined()
+	}
+}
+
+// createSetWSAllowAll 创建设置允许所有来源的方法（仅用于开发）
+func (h *HTTPServerModule) createSetWSAllowAll(server *HTTPServer) func(goja.FunctionCall) goja.Value {
+	return func(call goja.FunctionCall) goja.Value {
+		allow := false
+		if len(call.Arguments) > 0 {
+			allow = call.Arguments[0].ToBoolean()
+		}
+		server.wsAllowAll = allow
+		return goja.Undefined()
+	}
 }
 
 // createRouteHandler 创建路由处理器
@@ -360,17 +476,32 @@ func (h *HTTPServerModule) createCloseHandler(server *HTTPServer) func(goja.Func
 		promise, resolve, reject := h.vm.NewPromise()
 
 		go func() {
+			// 1. 停止 VM 处理器
+			close(server.stopChan)
+
+			// 2. 关闭 HTTP 服务器
 			if server.server != nil {
-				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+				ctx, cancel := context.WithTimeout(context.Background(), consts.DefaultHTTPTimeout)
 				defer cancel()
 
 				if err := server.server.Shutdown(ctx); err != nil {
 					reject(h.vm.NewGoError(err))
-				} else {
-					resolve(h.vm.ToValue("Server closed"))
+					return
 				}
-			} else {
-				resolve(h.vm.ToValue("Server not running"))
+			}
+
+			// 3. 等待所有 goroutine 完成
+			done := make(chan struct{})
+			go func() {
+				server.wg.Wait()
+				close(done)
+			}()
+
+			select {
+			case <-done:
+				resolve(h.vm.ToValue("Server closed"))
+			case <-time.After(10 * time.Second):
+				reject(h.vm.NewGoError(fmt.Errorf("timeout waiting for goroutines to finish")))
 			}
 		}()
 
@@ -635,8 +766,26 @@ func (h *HTTPServerModule) createResponseObjectWithWrapper(rw *responseWriter, r
 
 // sendFileResponse 发送文件响应
 func (h *HTTPServerModule) sendFileResponse(w http.ResponseWriter, rw *responseWriter, filePath string) {
+	// 路径验证 - 防止路径遍历攻击
+	cleanPath := filepath.Clean(filePath)
+	absPath, err := filepath.Abs(cleanPath)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("Invalid file path"))
+		rw.written = true
+		return
+	}
+
+	// 检查是否包含路径遍历模式
+	if strings.Contains(cleanPath, "..") {
+		w.WriteHeader(http.StatusForbidden)
+		w.Write([]byte("Access denied: path traversal not allowed"))
+		rw.written = true
+		return
+	}
+
 	// 检查文件是否存在
-	fileInfo, err := os.Stat(filePath)
+	fileInfo, err := os.Stat(absPath)
 	if err != nil {
 		if os.IsNotExist(err) {
 			w.WriteHeader(http.StatusNotFound)
@@ -658,7 +807,7 @@ func (h *HTTPServerModule) sendFileResponse(w http.ResponseWriter, rw *responseW
 	}
 
 	// 读取文件内容
-	content, err := os.ReadFile(filePath)
+	content, err := os.ReadFile(absPath)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte("Error reading file"))
@@ -667,7 +816,7 @@ func (h *HTTPServerModule) sendFileResponse(w http.ResponseWriter, rw *responseW
 	}
 
 	// 检测 MIME 类型
-	contentType := h.detectContentType(filePath, content)
+	contentType := h.detectContentType(absPath, content)
 	w.Header().Set("Content-Type", contentType)
 
 	// 设置缓存控制头

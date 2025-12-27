@@ -53,7 +53,7 @@ var runCmd = &cobra.Command{
 		}
 
 		// 创建运行器
-		runner := runtime.New()
+		runner := runtime.NewOrPanic()
 		defer runner.Close()
 
 		// 如果需要清除缓存

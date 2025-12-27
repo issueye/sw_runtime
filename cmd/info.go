@@ -19,7 +19,7 @@ var infoCmd = &cobra.Command{
 		fmt.Println()
 
 		// 创建临时运行器获取模块信息
-		runner := runtime.New()
+		runner := runtime.NewOrPanic()
 		defer runner.Close()
 
 		// 内置模块

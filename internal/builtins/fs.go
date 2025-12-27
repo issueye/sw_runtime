@@ -3,18 +3,67 @@ package builtins
 import (
 	"fmt"
 	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/dop251/goja"
+
+	"sw_runtime/internal/consts"
+	"sw_runtime/internal/security"
 )
 
 // FSModule 文件系统模块
 type FSModule struct {
-	vm *goja.Runtime
+	vm       *goja.Runtime
+	basePath string
+	validator *security.PathValidator
 }
 
 // NewFSModule 创建文件系统模块
 func NewFSModule(vm *goja.Runtime) *FSModule {
-	return &FSModule{vm: vm}
+	// 获取当前工作目录作为基础路径（沙箱根目录）
+	basePath, _ := os.Getwd()
+
+	return &FSModule{
+		vm:        vm,
+		basePath:  basePath,
+		validator: security.NewPathValidator(basePath),
+	}
+}
+
+// sanitizePath 验证并清理路径，防止路径遍历攻击
+func (f *FSModule) sanitizePath(path string) (string, error) {
+	// 检查路径长度
+	if len(path) > consts.MaxPathLength {
+		return "", fmt.Errorf("path too long: max %d characters", consts.MaxPathLength)
+	}
+
+	// 检查是否包含空字节
+	if strings.ContainsAny(path, "\x00") {
+		return "", fmt.Errorf("path contains null bytes")
+	}
+
+	// 清理路径
+	cleanPath := filepath.Clean(path)
+
+	// 检查是否包含路径遍历模式
+	if strings.Contains(cleanPath, "..") {
+		// 使用验证器检查
+		return f.validator.Validate(cleanPath)
+	}
+
+	// 对于相对路径，使用验证器检查
+	if !filepath.IsAbs(cleanPath) {
+		return f.validator.Validate(cleanPath)
+	}
+
+	// 对于绝对路径，也需要验证
+	return f.validator.Validate(cleanPath)
+}
+
+// validatePath 验证路径并返回绝对路径
+func (f *FSModule) validatePath(path string) (string, error) {
+	return f.sanitizePath(path)
 }
 
 // GetModule 获取文件系统模块对象
@@ -55,7 +104,12 @@ func (f *FSModule) readFileSync(call goja.FunctionCall) goja.Value {
 	}
 
 	filename := call.Arguments[0].String()
-	content, err := os.ReadFile(filename)
+	safePath, err := f.validatePath(filename)
+	if err != nil {
+		panic(f.vm.NewGoError(fmt.Errorf("access denied: %w", err)))
+	}
+
+	content, err := os.ReadFile(safePath)
 	if err != nil {
 		panic(f.vm.NewGoError(err))
 	}
@@ -88,9 +142,14 @@ func (f *FSModule) writeFileSync(call goja.FunctionCall) goja.Value {
 	}
 
 	filename := call.Arguments[0].String()
+	safePath, err := f.validatePath(filename)
+	if err != nil {
+		panic(f.vm.NewGoError(fmt.Errorf("access denied: %w", err)))
+	}
+
 	data := call.Arguments[1].String()
 
-	err := os.WriteFile(filename, []byte(data), 0644)
+	err = os.WriteFile(safePath, []byte(data), consts.FilePermReadWrite)
 	if err != nil {
 		panic(f.vm.NewGoError(err))
 	}
@@ -104,7 +163,11 @@ func (f *FSModule) existsSync(call goja.FunctionCall) goja.Value {
 		return f.vm.ToValue(false)
 	}
 	filename := call.Arguments[0].String()
-	_, err := os.Stat(filename)
+	safePath, err := f.validatePath(filename)
+	if err != nil {
+		return f.vm.ToValue(false)
+	}
+	_, err = os.Stat(safePath)
 	return f.vm.ToValue(err == nil)
 }
 
@@ -115,7 +178,12 @@ func (f *FSModule) statSync(call goja.FunctionCall) goja.Value {
 	}
 
 	filename := call.Arguments[0].String()
-	info, err := os.Stat(filename)
+	safePath, err := f.validatePath(filename)
+	if err != nil {
+		panic(f.vm.NewGoError(fmt.Errorf("access denied: %w", err)))
+	}
+
+	info, err := os.Stat(safePath)
 	if err != nil {
 		panic(f.vm.NewGoError(err))
 	}
@@ -138,6 +206,10 @@ func (f *FSModule) mkdirSync(call goja.FunctionCall) goja.Value {
 	}
 
 	path := call.Arguments[0].String()
+	safePath, err := f.validatePath(path)
+	if err != nil {
+		panic(f.vm.NewGoError(fmt.Errorf("access denied: %w", err)))
+	}
 
 	// 检查选项
 	recursive := false
@@ -149,15 +221,15 @@ func (f *FSModule) mkdirSync(call goja.FunctionCall) goja.Value {
 		}
 	}
 
-	var err error
+	var errMkdir error
 	if recursive {
-		err = os.MkdirAll(path, 0755)
+		errMkdir = os.MkdirAll(safePath, consts.DirPermReadWrite)
 	} else {
-		err = os.Mkdir(path, 0755)
+		errMkdir = os.Mkdir(safePath, consts.DirPermReadWrite)
 	}
 
-	if err != nil {
-		panic(f.vm.NewGoError(err))
+	if errMkdir != nil {
+		panic(f.vm.NewGoError(errMkdir))
 	}
 
 	return goja.Undefined()
@@ -170,7 +242,12 @@ func (f *FSModule) readdirSync(call goja.FunctionCall) goja.Value {
 	}
 
 	path := call.Arguments[0].String()
-	entries, err := os.ReadDir(path)
+	safePath, err := f.validatePath(path)
+	if err != nil {
+		panic(f.vm.NewGoError(fmt.Errorf("access denied: %w", err)))
+	}
+
+	entries, err := os.ReadDir(safePath)
 	if err != nil {
 		panic(f.vm.NewGoError(err))
 	}
@@ -190,7 +267,12 @@ func (f *FSModule) unlinkSync(call goja.FunctionCall) goja.Value {
 	}
 
 	filename := call.Arguments[0].String()
-	err := os.Remove(filename)
+	safePath, err := f.validatePath(filename)
+	if err != nil {
+		panic(f.vm.NewGoError(fmt.Errorf("access denied: %w", err)))
+	}
+
+	err = os.Remove(safePath)
 	if err != nil {
 		panic(f.vm.NewGoError(err))
 	}
@@ -205,6 +287,10 @@ func (f *FSModule) rmdirSync(call goja.FunctionCall) goja.Value {
 	}
 
 	path := call.Arguments[0].String()
+	safePath, err := f.validatePath(path)
+	if err != nil {
+		panic(f.vm.NewGoError(fmt.Errorf("access denied: %w", err)))
+	}
 
 	// 检查选项
 	recursive := false
@@ -216,15 +302,15 @@ func (f *FSModule) rmdirSync(call goja.FunctionCall) goja.Value {
 		}
 	}
 
-	var err error
+	var errRmdir error
 	if recursive {
-		err = os.RemoveAll(path)
+		errRmdir = os.RemoveAll(safePath)
 	} else {
-		err = os.Remove(path)
+		errRmdir = os.Remove(safePath)
 	}
 
-	if err != nil {
-		panic(f.vm.NewGoError(err))
+	if errRmdir != nil {
+		panic(f.vm.NewGoError(errRmdir))
 	}
 
 	return goja.Undefined()
@@ -239,12 +325,22 @@ func (f *FSModule) copyFileSync(call goja.FunctionCall) goja.Value {
 	src := call.Arguments[0].String()
 	dst := call.Arguments[1].String()
 
-	data, err := os.ReadFile(src)
+	safeSrc, err := f.validatePath(src)
+	if err != nil {
+		panic(f.vm.NewGoError(fmt.Errorf("access denied (source): %w", err)))
+	}
+
+	safeDst, err := f.validatePath(dst)
+	if err != nil {
+		panic(f.vm.NewGoError(fmt.Errorf("access denied (destination): %w", err)))
+	}
+
+	data, err := os.ReadFile(safeSrc)
 	if err != nil {
 		panic(f.vm.NewGoError(err))
 	}
 
-	err = os.WriteFile(dst, data, 0644)
+	err = os.WriteFile(safeDst, data, consts.FilePermReadWrite)
 	if err != nil {
 		panic(f.vm.NewGoError(err))
 	}
@@ -261,7 +357,17 @@ func (f *FSModule) renameSync(call goja.FunctionCall) goja.Value {
 	oldPath := call.Arguments[0].String()
 	newPath := call.Arguments[1].String()
 
-	err := os.Rename(oldPath, newPath)
+	safeOld, err := f.validatePath(oldPath)
+	if err != nil {
+		panic(f.vm.NewGoError(fmt.Errorf("access denied (old path): %w", err)))
+	}
+
+	safeNew, err := f.validatePath(newPath)
+	if err != nil {
+		panic(f.vm.NewGoError(fmt.Errorf("access denied (new path): %w", err)))
+	}
+
+	err = os.Rename(safeOld, safeNew)
 	if err != nil {
 		panic(f.vm.NewGoError(err))
 	}
@@ -281,7 +387,13 @@ func (f *FSModule) readFile(call goja.FunctionCall) goja.Value {
 	promise, resolve, reject := f.vm.NewPromise()
 
 	go func() {
-		content, err := os.ReadFile(filename)
+		safePath, err := f.validatePath(filename)
+		if err != nil {
+			reject(f.vm.NewGoError(fmt.Errorf("access denied: %w", err)))
+			return
+		}
+
+		content, err := os.ReadFile(safePath)
 		if err != nil {
 			reject(f.vm.NewGoError(err))
 		} else {
@@ -303,7 +415,13 @@ func (f *FSModule) writeFile(call goja.FunctionCall) goja.Value {
 	promise, resolve, reject := f.vm.NewPromise()
 
 	go func() {
-		err := os.WriteFile(filename, []byte(data), 0644)
+		safePath, err := f.validatePath(filename)
+		if err != nil {
+			reject(f.vm.NewGoError(fmt.Errorf("access denied: %w", err)))
+			return
+		}
+
+		err = os.WriteFile(safePath, []byte(data), consts.FilePermReadWrite)
 		if err != nil {
 			reject(f.vm.NewGoError(err))
 		} else {
@@ -324,7 +442,13 @@ func (f *FSModule) exists(call goja.FunctionCall) goja.Value {
 	promise, resolve, _ := f.vm.NewPromise()
 
 	go func() {
-		_, err := os.Stat(filename)
+		safePath, err := f.validatePath(filename)
+		if err != nil {
+			resolve(f.vm.ToValue(false))
+			return
+		}
+
+		_, err = os.Stat(safePath)
 		resolve(f.vm.ToValue(err == nil))
 	}()
 
@@ -341,7 +465,13 @@ func (f *FSModule) stat(call goja.FunctionCall) goja.Value {
 	promise, resolve, reject := f.vm.NewPromise()
 
 	go func() {
-		info, err := os.Stat(filename)
+		safePath, err := f.validatePath(filename)
+		if err != nil {
+			reject(f.vm.NewGoError(fmt.Errorf("access denied: %w", err)))
+			return
+		}
+
+		info, err := os.Stat(safePath)
 		if err != nil {
 			reject(f.vm.NewGoError(err))
 		} else {
@@ -369,7 +499,13 @@ func (f *FSModule) mkdir(call goja.FunctionCall) goja.Value {
 	promise, resolve, reject := f.vm.NewPromise()
 
 	go func() {
-		err := os.MkdirAll(path, 0755)
+		safePath, err := f.validatePath(path)
+		if err != nil {
+			reject(f.vm.NewGoError(fmt.Errorf("access denied: %w", err)))
+			return
+		}
+
+		err = os.MkdirAll(safePath, consts.DirPermReadWrite)
 		if err != nil {
 			reject(f.vm.NewGoError(err))
 		} else {
@@ -390,7 +526,13 @@ func (f *FSModule) readdir(call goja.FunctionCall) goja.Value {
 	promise, resolve, reject := f.vm.NewPromise()
 
 	go func() {
-		entries, err := os.ReadDir(path)
+		safePath, err := f.validatePath(path)
+		if err != nil {
+			reject(f.vm.NewGoError(fmt.Errorf("access denied: %w", err)))
+			return
+		}
+
+		entries, err := os.ReadDir(safePath)
 		if err != nil {
 			reject(f.vm.NewGoError(err))
 		} else {
@@ -415,7 +557,13 @@ func (f *FSModule) unlink(call goja.FunctionCall) goja.Value {
 	promise, resolve, reject := f.vm.NewPromise()
 
 	go func() {
-		err := os.Remove(filename)
+		safePath, err := f.validatePath(filename)
+		if err != nil {
+			reject(f.vm.NewGoError(fmt.Errorf("access denied: %w", err)))
+			return
+		}
+
+		err = os.Remove(safePath)
 		if err != nil {
 			reject(f.vm.NewGoError(err))
 		} else {
@@ -436,7 +584,13 @@ func (f *FSModule) rmdir(call goja.FunctionCall) goja.Value {
 	promise, resolve, reject := f.vm.NewPromise()
 
 	go func() {
-		err := os.RemoveAll(path)
+		safePath, err := f.validatePath(path)
+		if err != nil {
+			reject(f.vm.NewGoError(fmt.Errorf("access denied: %w", err)))
+			return
+		}
+
+		err = os.RemoveAll(safePath)
 		if err != nil {
 			reject(f.vm.NewGoError(err))
 		} else {
@@ -458,13 +612,25 @@ func (f *FSModule) copyFile(call goja.FunctionCall) goja.Value {
 	promise, resolve, reject := f.vm.NewPromise()
 
 	go func() {
-		data, err := os.ReadFile(src)
+		safeSrc, err := f.validatePath(src)
+		if err != nil {
+			reject(f.vm.NewGoError(fmt.Errorf("access denied (source): %w", err)))
+			return
+		}
+
+		safeDst, err := f.validatePath(dst)
+		if err != nil {
+			reject(f.vm.NewGoError(fmt.Errorf("access denied (destination): %w", err)))
+			return
+		}
+
+		data, err := os.ReadFile(safeSrc)
 		if err != nil {
 			reject(f.vm.NewGoError(err))
 			return
 		}
 
-		err = os.WriteFile(dst, data, 0644)
+		err = os.WriteFile(safeDst, data, consts.FilePermReadWrite)
 		if err != nil {
 			reject(f.vm.NewGoError(err))
 		} else {
@@ -486,7 +652,19 @@ func (f *FSModule) rename(call goja.FunctionCall) goja.Value {
 	promise, resolve, reject := f.vm.NewPromise()
 
 	go func() {
-		err := os.Rename(oldPath, newPath)
+		safeOld, err := f.validatePath(oldPath)
+		if err != nil {
+			reject(f.vm.NewGoError(fmt.Errorf("access denied (old path): %w", err)))
+			return
+		}
+
+		safeNew, err := f.validatePath(newPath)
+		if err != nil {
+			reject(f.vm.NewGoError(fmt.Errorf("access denied (new path): %w", err)))
+			return
+		}
+
+		err = os.Rename(safeOld, safeNew)
 		if err != nil {
 			reject(f.vm.NewGoError(err))
 		} else {
