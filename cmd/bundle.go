@@ -16,6 +16,8 @@ var (
 	minify       bool
 	sourcemap    bool
 	excludeFiles []string
+	encrypt      bool
+	encryptKey   string
 )
 
 var bundleCmd = &cobra.Command{
@@ -32,11 +34,13 @@ bundle 命令会从入口文件开始，递归分析所有依赖的模块，并�
   • 排除内置模块
   • 可选代码压缩
   • 支持 Source Map
+  • 代码加密保护 (AES-256-GCM)
 
 示例:
   sw_runtime bundle app.ts -o bundle.js
   sw_runtime bundle main.js -o dist/app.js --minify
-  sw_runtime bundle server.ts -o server.bundle.js --exclude utils.js,helpers.js`,
+  sw_runtime bundle server.ts -o server.bundle.js --exclude utils.js,helpers.js
+  sw_runtime bundle app.js --encrypt -o app.encrypted.js`,
 	Args: cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		entryFile := args[0]
@@ -61,6 +65,8 @@ bundle 命令会从入口文件开始，递归分析所有依赖的模块，并�
 			Minify:       minify,
 			Sourcemap:    sourcemap,
 			ExcludeFiles: excludeFiles,
+			Encrypt:      encrypt,
+			EncryptKey:   encryptKey,
 		})
 
 		// 执行打包
@@ -91,6 +97,15 @@ bundle 命令会从入口文件开始，递归分析所有依赖的模块，并�
 			}
 		}
 
+		// 如果加密了，保存密钥到 .key 文件
+		if result.Encrypted && result.EncryptKey != "" {
+			keyFile := outputFile + ".key"
+			err = os.WriteFile(keyFile, []byte(result.EncryptKey), 0600)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "⚠️  写入密钥文件失败: %v\n", err)
+			}
+		}
+
 		// 显示结果
 		if !quietMode {
 			verboseMode, _ := cmd.Flags().GetBool("verbose")
@@ -109,6 +124,18 @@ bundle 命令会从入口文件开始，递归分析所有依赖的模块，并�
 			if sourcemap {
 				fmt.Printf("🗺️  Source Map: %s.map\n", outputFile)
 			}
+
+			// 显示加密信息
+			if result.Encrypted {
+				fmt.Printf("\n🔒 加密信息:\n")
+				fmt.Printf("✅ 代码已加密 (AES-256-GCM)\n")
+				fmt.Printf("🔑 密钥文件: %s.key\n", outputFile)
+				fmt.Printf("📝 密钥内容: %s\n", result.EncryptKey)
+				fmt.Printf("\n⚠️  请保管好密钥文件，运行时需要：\n")
+				fmt.Printf("   sw_runtime run --decrypt-key=%s %s\n", result.EncryptKey, outputFile)
+				fmt.Printf("   或\n")
+				fmt.Printf("   sw_runtime run --decrypt-key-file=%s.key %s\n", outputFile, outputFile)
+			}
 		}
 	},
 }
@@ -120,4 +147,6 @@ func init() {
 	bundleCmd.Flags().BoolVarP(&minify, "minify", "m", false, "压缩输出代码")
 	bundleCmd.Flags().BoolVar(&sourcemap, "sourcemap", false, "生成 source map")
 	bundleCmd.Flags().StringSliceVar(&excludeFiles, "exclude", []string{}, "排除指定文件（逗号分隔）")
+	bundleCmd.Flags().BoolVar(&encrypt, "encrypt", false, "加密打包后的代码 (AES-256-GCM)")
+	bundleCmd.Flags().StringVar(&encryptKey, "encrypt-key", "", "指定加密密钥（不指定则自动生成）")
 }

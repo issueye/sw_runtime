@@ -1,6 +1,10 @@
 package bundler
 
 import (
+	"crypto/aes"
+	"crypto/cipher"
+	"crypto/rand"
+	"encoding/base64"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -17,13 +21,17 @@ type Options struct {
 	Minify       bool     // 是否压缩
 	Sourcemap    bool     // 是否生成 source map
 	ExcludeFiles []string // 排除的文件列表
+	Encrypt      bool     // 是否加密
+	EncryptKey   string   // 加密密钥（如果为空则自动生成）
 }
 
 // Result 打包结果
 type Result struct {
-	Code      string   // 打包后的代码
-	Sourcemap string   // Source map (如果生成)
-	Modules   []string // 包含的模块列表
+	Code       string   // 打包后的代码
+	Sourcemap  string   // Source map (如果生成)
+	Modules    []string // 包含的模块列表
+	Encrypted  bool     // 是否加密
+	EncryptKey string   // 加密密钥（仅当加密时有效）
 }
 
 // Bundler 打包器
@@ -126,10 +134,38 @@ func (b *Bundler) Bundle() (*Result, error) {
 		sourcemap = string(result.OutputFiles[1].Contents)
 	}
 
+	// 如果需要加密
+	encryptKey := ""
+	encrypted := false
+	if b.options.Encrypt {
+		// 生成或使用提供的密钥
+		if b.options.EncryptKey != "" {
+			encryptKey = b.options.EncryptKey
+		} else {
+			var err error
+			encryptKey, err = generateEncryptKey()
+			if err != nil {
+				return nil, fmt.Errorf("生成加密密钥失败: %w", err)
+			}
+		}
+
+		// 加密代码
+		encryptedCode, err := encryptCode(code, encryptKey)
+		if err != nil {
+			return nil, fmt.Errorf("加密代码失败: %w", err)
+		}
+
+		// 生成加密包装器
+		code = wrapEncryptedCode(encryptedCode)
+		encrypted = true
+	}
+
 	return &Result{
-		Code:      code,
-		Sourcemap: sourcemap,
-		Modules:   b.moduleOrder,
+		Code:       code,
+		Sourcemap:  sourcemap,
+		Modules:    b.moduleOrder,
+		Encrypted:  encrypted,
+		EncryptKey: encryptKey,
 	}, nil
 }
 
@@ -289,4 +325,68 @@ func (b *Bundler) getExternalModules() []string {
 		external = append(external, mod)
 	}
 	return external
+}
+
+// generateEncryptKey 生成随机加密密钥 (32字节 = 256位)
+func generateEncryptKey() (string, error) {
+	key := make([]byte, 32)
+	_, err := rand.Read(key)
+	if err != nil {
+		return "", err
+	}
+	return base64.StdEncoding.EncodeToString(key), nil
+}
+
+// encryptCode 使用 AES-256-GCM 加密代码
+func encryptCode(code string, keyStr string) (string, error) {
+	// 解码 base64 密钥
+	key, err := base64.StdEncoding.DecodeString(keyStr)
+	if err != nil {
+		return "", fmt.Errorf("无效的密钥格式: %w", err)
+	}
+
+	// 创建 AES cipher
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		return "", err
+	}
+
+	// 创建 GCM
+	gcm, err := cipher.NewGCM(block)
+	if err != nil {
+		return "", err
+	}
+
+	// 生成随机 nonce
+	nonce := make([]byte, gcm.NonceSize())
+	_, err = rand.Read(nonce)
+	if err != nil {
+		return "", err
+	}
+
+	// 加密
+	ciphertext := gcm.Seal(nonce, nonce, []byte(code), nil)
+
+	// 返回 base64 编码的加密数据
+	return base64.StdEncoding.EncodeToString(ciphertext), nil
+}
+
+// wrapEncryptedCode 包装加密代码，生成带解密器的脚本
+func wrapEncryptedCode(encryptedCode string) string {
+	return fmt.Sprintf(`// SW Runtime Encrypted Bundle
+// This file contains encrypted code and requires a decryption key to run.
+// Use: sw_runtime run --decrypt-key=<key> <file>
+
+const ENCRYPTED_CODE = %q;
+
+if (typeof __SW_DECRYPT_KEY__ === 'undefined') {
+    console.error('❌ 这是一个加密的 bundle 文件，需要解密密钥运行。');
+    console.error('使用方法: sw_runtime run --decrypt-key=<key> <file>');
+    throw new Error('缺少解密密钥');
+}
+
+// 这里的解密逻辑由 SW Runtime 在运行时处理
+// __SW_DECRYPT_KEY__ 会被 SW Runtime 注入
+eval(__SW_DECRYPT_KEY__);
+`, encryptedCode)
 }
