@@ -11,19 +11,58 @@ import (
 	"github.com/dop251/goja"
 )
 
+// EventLoopType 事件循环类型
+type EventLoopType int
+
+const (
+	// EventLoopSimple 简单事件循环（轮询模式）
+	EventLoopSimple EventLoopType = iota
+	// EventLoopOptimized 优化事件循环（事件驱动模式）
+	EventLoopOptimized
+)
+
+// DefaultEventLoopType 默认事件循环类型
+var DefaultEventLoopType = EventLoopOptimized
+
+// eventLoopInterface 事件循环接口
+type eventLoopInterface interface {
+	Start()
+	Stop()
+	AddJob()
+	DoneJob()
+	SetLongLived()
+	WaitAndProcess()
+	SetTimeout(call goja.FunctionCall) goja.Value
+	ClearTimeout(call goja.FunctionCall) goja.Value
+	SetInterval(call goja.FunctionCall) goja.Value
+	ClearInterval(call goja.FunctionCall) goja.Value
+}
+
 // Runner JavaScript/TypeScript 运行器
 type Runner struct {
 	vm      *goja.Runtime
-	loop    *SimpleEventLoop
+	loop    eventLoopInterface
 	modules *modules.System
 }
 
-// New 创建新的运行器
+// New 创建新的运行器（使用默认事件循环类型）
 func New() (*Runner, error) {
+	return NewWithEventLoop(DefaultEventLoopType)
+}
+
+// NewWithEventLoop 创建新的运行器，指定事件循环类型
+func NewWithEventLoop(loopType EventLoopType) (*Runner, error) {
 	vm := goja.New()
 	vm.SetFieldNameMapper(goja.TagFieldNameMapper("json", true))
 
-	loop := NewSimpleEventLoop(vm)
+	// 根据类型创建事件循环
+	var loop eventLoopInterface
+	switch loopType {
+	case EventLoopOptimized:
+		loop = NewEventLoop(vm)
+	default:
+		loop = NewSimpleEventLoop(vm)
+	}
 
 	// 获取当前工作目录作为基础路径
 	basePath, err := os.Getwd()
