@@ -11,6 +11,35 @@ import (
 	"github.com/dop251/goja"
 )
 
+// TCP 服务器注册表，用于跟踪所有活动的 TCP 服务器
+var tcpServerRegistry = struct {
+	sync.RWMutex
+	servers map[*TCPServer]struct{}
+}{
+	servers: make(map[*TCPServer]struct{}),
+}
+
+// IsTCPServerRunning 检查是否有 TCP 服务器在运行
+func IsTCPServerRunning() bool {
+	tcpServerRegistry.RLock()
+	defer tcpServerRegistry.RUnlock()
+	return len(tcpServerRegistry.servers) > 0
+}
+
+// registerTCPServer 注册 TCP 服务器
+func registerTCPServer(s *TCPServer) {
+	tcpServerRegistry.Lock()
+	defer tcpServerRegistry.Unlock()
+	tcpServerRegistry.servers[s] = struct{}{}
+}
+
+// unregisterTCPServer 注销 TCP 服务器
+func unregisterTCPServer(s *TCPServer) {
+	tcpServerRegistry.Lock()
+	defer tcpServerRegistry.Unlock()
+	delete(tcpServerRegistry.servers, s)
+}
+
 // NetModule 网络模块
 type NetModule struct {
 	vm          *goja.Runtime
@@ -95,6 +124,9 @@ func (n *NetModule) createTCPServer(call goja.FunctionCall) goja.Value {
 			n.listeners[listenerID] = listener
 			n.mutex.Unlock()
 
+			// 注册 TCP 服务器到全局注册表
+			registerTCPServer(server)
+
 			// 调用回调
 			if callback != nil {
 				if fn, ok := goja.AssertFunction(callback); ok {
@@ -118,6 +150,9 @@ func (n *NetModule) createTCPServer(call goja.FunctionCall) goja.Value {
 				// 触发 connection 事件
 				go server.handleConnection(conn)
 			}
+
+			// 服务器关闭，从注册表移除
+			unregisterTCPServer(server)
 		}()
 
 		return n.vm.ToValue(promise)

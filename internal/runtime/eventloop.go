@@ -373,6 +373,11 @@ func (el *EventLoop) hasWork() bool {
 		return true
 	}
 
+	// 检查 TCP 服务器
+	if builtins.IsTCPServerRunning() {
+		return true
+	}
+
 	// 检查活跃任务
 	if el.activeJobs.Load() > 0 {
 		return true

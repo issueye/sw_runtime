@@ -3,7 +3,9 @@
     "allow": [
       "Bash(go build:*)",
       "Bash(find:*)",
-      "Bash(go test:*)"
+      "Bash(go test:*)",
+      "Bash(timeout:*)",
+      "Bash(echo:*)"
     ]
   }
 }
