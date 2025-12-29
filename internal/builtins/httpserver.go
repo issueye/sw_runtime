@@ -107,6 +107,9 @@ type HTTPServer struct {
 	stopChan    chan struct{}
 	stopOnce    sync.Once
 	initialized bool
+
+	// 路径注册追踪（防止重复注册）
+	registeredPaths map[string]bool
 }
 
 // NewHTTPServerModule 创建 HTTP 服务器模块
@@ -154,6 +157,7 @@ func (h *HTTPServerModule) createServer(call goja.FunctionCall) goja.Value {
 		wsAllowAll:       false, // 默认不允许所有来源
 		requestChan:      make(chan func(*goja.Runtime), 100),
 		stopChan:         make(chan struct{}),
+		registeredPaths:  make(map[string]bool), // 初始化路径追踪
 		// 默认超时配置
 		readTimeout:       consts.DefaultReadTimeout,
 		writeTimeout:      consts.DefaultWriteTimeout,
@@ -384,10 +388,15 @@ func (h *HTTPServerModule) createRouteHandler(server *HTTPServer, method string)
 
 		server.mutex.Lock()
 		server.routes[method][path] = handler
-		server.mutex.Unlock()
-
-		// 注册到 mux
-		server.mux.HandleFunc(path, h.createHTTPHandler(server, method, path))
+		// 检查路径是否已注册到 mux
+		if !server.registeredPaths[path] {
+			server.registeredPaths[path] = true
+			server.mutex.Unlock()
+			// 只注册一次到 mux，handler 内部会根据 method 分发
+			server.mux.HandleFunc(path, h.createHTTPHandler(server, "", path))
+		} else {
+			server.mutex.Unlock()
+		}
 
 		return goja.Undefined()
 	}
@@ -413,10 +422,15 @@ func (h *HTTPServerModule) createGenericRouteHandler(server *HTTPServer) func(go
 			server.routes[method] = make(map[string]goja.Value)
 		}
 		server.routes[method][path] = handler
-		server.mutex.Unlock()
-
-		// 注册到 mux
-		server.mux.HandleFunc(path, h.createHTTPHandler(server, method, path))
+		// 检查路径是否已注册到 mux
+		if !server.registeredPaths[path] {
+			server.registeredPaths[path] = true
+			server.mutex.Unlock()
+			// 只注册一次到 mux，handler 内部会根据 method 分发
+			server.mux.HandleFunc(path, h.createHTTPHandler(server, "", path))
+		} else {
+			server.mutex.Unlock()
+		}
 
 		return goja.Undefined()
 	}
@@ -701,21 +715,23 @@ func (h *HTTPServerModule) createCloseHandler(server *HTTPServer) func(goja.Func
 }
 
 // createHTTPHandler 创建 HTTP 处理器
+// method 参数为空字符串时，会根据实际请求的方法动态查找对应的 handler
 func (h *HTTPServerModule) createHTTPHandler(server *HTTPServer, method, path string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// 检查方法匹配
-		if r.Method != method {
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-			return
+		// 如果 method 为空，使用请求的实际方法
+		actualMethod := method
+		if actualMethod == "" {
+			actualMethod = r.Method
 		}
 
 		server.mutex.RLock()
-		handler, exists := server.routes[method][path]
+		handler, exists := server.routes[actualMethod][path]
 		middleware := server.middleware
 		server.mutex.RUnlock()
 
 		if !exists {
-			http.NotFound(w, r)
+			// 方法不支持，返回 405 Method Not Allowed
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 			return
 		}
 
