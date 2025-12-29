@@ -229,6 +229,38 @@ return r.vm.ToValue(promise)
 ### Thread-Module Loading
 The module cache is protected by `sync.RWMutex`. Always use locking when accessing `cache` map.
 
+## Hot Reloading
+
+SW Runtime supports hot reloading of JavaScript/TypeScript applications. When enabled, the runtime monitors source files for changes and automatically restarts the application.
+
+### Usage
+
+```bash
+# Monitor file changes and reload on modification
+sw_runtime run --watch app.ts
+sw_runtime run -w server.js
+
+# Combined with other options
+sw_runtime run --watch --clear-cache app.js
+```
+
+### Features
+
+- **File monitoring**: Automatically detects changes to the entry script
+- **Graceful restart**: Stops the current runner and starts a new instance
+- **Debounced events**: Multiple rapid changes are coalesced into a single restart
+- **Signal handling**: Supports Ctrl+C for graceful shutdown
+
+### Limitations
+
+- Encrypted bundle files are not supported in watch mode
+- Only monitors the entry file (not dependent modules)
+- Application state is not preserved across restarts
+
+### Example
+
+See `example_hotreload.js` for a complete example with HTTP server.
+
 ## Documentation
 
 - Main README: Comprehensive feature overview and examples

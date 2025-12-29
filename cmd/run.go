@@ -17,6 +17,7 @@ var (
 	decryptKey     string
 	decryptKeyFile string
 	workingDir     string
+	watchMode      bool
 )
 
 // runCmd 代表 run 命令
@@ -35,7 +36,8 @@ var runCmd = &cobra.Command{
   sw_runtime run server.js
   sw_runtime run --clear-cache app.ts
   sw_runtime run --decrypt-key=<key> encrypted.bundle.js
-  sw_runtime run --decrypt-key-file=bundle.key encrypted.bundle.js`,
+  sw_runtime run --decrypt-key-file=bundle.key encrypted.bundle.js
+  sw_runtime run --watch app.ts`,
 	Args: cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		scriptPath := args[0]
@@ -51,71 +53,16 @@ var runCmd = &cobra.Command{
 
 		if verbose && !quiet {
 			fmt.Printf("🚀 正在运行: %s\n", scriptPath)
-		}
-
-		// 创建运行器
-		var runner *runtime.Runner
-		if workingDir != "" {
-			// 确保目录存在
-			if _, err := os.Stat(workingDir); os.IsNotExist(err) {
-				fmt.Fprintf(os.Stderr, "❌ 工作目录不存在: %s\n", workingDir)
-				os.Exit(1)
-			}
-			runner = runtime.NewOrPanicWithWorkingDir(workingDir)
-		} else {
-			runner = runtime.NewOrPanic()
-		}
-		defer runner.Close()
-
-		// 如果需要清除缓存
-		if clearCache {
-			runner.ClearModuleCache()
-			if verbose && !quiet {
-				fmt.Println("🧹 已清除模块缓存")
+			if watchMode {
+				fmt.Println("👀 已启用文件监控模式")
 			}
 		}
 
-		// 处理加密文件
-		var actualScriptPath = scriptPath
-		if decryptKey != "" || decryptKeyFile != "" {
-			// 读取密钥
-			key := decryptKey
-			if decryptKeyFile != "" {
-				keyData, err := os.ReadFile(decryptKeyFile)
-				if err != nil {
-					fmt.Fprintf(os.Stderr, "❌ 读取密钥文件失败: %v\n", err)
-					os.Exit(1)
-				}
-				key = string(keyData)
-			}
-
-			if verbose && !quiet {
-				fmt.Println("🔓 正在解密文件...")
-			}
-
-			// 解密文件
-			decryptedPath, err := decryptBundleFile(scriptPath, key)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "❌ 解密失败: %v\n", err)
-				os.Exit(1)
-			}
-			actualScriptPath = decryptedPath
-			defer os.Remove(decryptedPath) // 运行后删除临时文件
-
-			if verbose && !quiet {
-				fmt.Println("✅ 解密成功")
-			}
-		}
-
-		// 运行脚本
-		err := runner.RunFile(actualScriptPath)
+		// 执行脚本
+		err := runScript(scriptPath, workingDir, clearCache, decryptKey, decryptKeyFile, watchMode, verbose, quiet)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "❌ 运行失败: %v\n", err)
 			os.Exit(1)
-		}
-
-		if verbose && !quiet {
-			fmt.Println("✅ 执行完成")
 		}
 	},
 }
@@ -128,6 +75,97 @@ func init() {
 	runCmd.Flags().StringVar(&decryptKey, "decrypt-key", "", "解密密钥（用于加密的 bundle 文件）")
 	runCmd.Flags().StringVar(&decryptKeyFile, "decrypt-key-file", "", "解密密钥文件路径")
 	runCmd.Flags().StringVar(&workingDir, "dir", "", "指定工作目录（用于 fs 模块的沙箱基础路径）")
+	runCmd.Flags().BoolVarP(&watchMode, "watch", "w", false, "监控文件变化并热重载")
+}
+
+// runScript 执行脚本并支持热加载
+func runScript(scriptPath, workingDir string, clearCache bool, decryptKey, decryptKeyFile string,
+	watchMode, verbose, quiet bool) error {
+
+	// 如果有加密文件，暂时不支持监控模式
+	if watchMode && (decryptKey != "" || decryptKeyFile != "") {
+		return fmt.Errorf("加密文件暂不支持监控模式")
+	}
+
+	// 处理加密文件
+	var actualScriptPath = scriptPath
+	if decryptKey != "" || decryptKeyFile != "" {
+		// 读取密钥
+		key := decryptKey
+		if decryptKeyFile != "" {
+			keyData, err := os.ReadFile(decryptKeyFile)
+			if err != nil {
+				return fmt.Errorf("读取密钥文件失败: %w", err)
+			}
+			key = string(keyData)
+		}
+
+		if verbose && !quiet {
+			fmt.Println("🔓 正在解密文件...")
+		}
+
+		// 解密文件
+		decryptedPath, err := decryptBundleFile(scriptPath, key)
+		if err != nil {
+			return fmt.Errorf("解密失败: %w", err)
+		}
+		actualScriptPath = decryptedPath
+		defer os.Remove(decryptedPath) // 运行后删除临时文件
+
+		if verbose && !quiet {
+			fmt.Println("✅ 解密成功")
+		}
+	}
+
+	if watchMode {
+		// 使用运行器管理器
+		manager := runtime.NewRunnerManager(scriptPath, workingDir, clearCache,
+			decryptKey, decryptKeyFile, verbose, quiet)
+		return manager.Start()
+	} else {
+		// 传统模式：单次运行
+		return runScriptOnce(actualScriptPath, workingDir, clearCache, verbose, quiet)
+	}
+}
+
+// runScriptOnce 单次运行脚本
+func runScriptOnce(scriptPath, workingDir string, clearCache, verbose, quiet bool) error {
+	// 创建运行器
+	var runner *runtime.Runner
+	if workingDir != "" {
+		// 确保目录存在
+		if _, err := os.Stat(workingDir); os.IsNotExist(err) {
+			return fmt.Errorf("工作目录不存在: %s", workingDir)
+		}
+		runner = runtime.NewOrPanicWithWorkingDir(workingDir)
+	} else {
+		runner = runtime.NewOrPanic()
+	}
+	defer runner.Close()
+
+	// 如果需要清除缓存
+	if clearCache {
+		runner.ClearModuleCache()
+		if verbose && !quiet {
+			fmt.Println("🧹 已清除模块缓存")
+		}
+	}
+
+	// 运行脚本
+	if verbose && !quiet {
+		fmt.Printf("🚀 正在运行: %s\n", scriptPath)
+	}
+
+	err := runner.RunFile(scriptPath)
+	if err != nil {
+		return fmt.Errorf("运行失败: %w", err)
+	}
+
+	if verbose && !quiet {
+		fmt.Println("✅ 执行完成")
+	}
+
+	return nil
 }
 
 // decryptBundleFile 解密 bundle 文件
