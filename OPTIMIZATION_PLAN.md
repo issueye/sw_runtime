@@ -510,7 +510,7 @@ func NewSystem(vm *goja.Runtime, basePath string) *System {
     ms := &System{
         vm:             vm,
         cache:          lru.New(1000), // 最多缓存 1000 个模块
-        builtinManager: builtins.NewManager(vm),
+        builtinManager: builtins.NewManager(vm, basePath),
         basePath:       basePath,
         nodeModules: []string{
             filepath.Join(basePath, "node_modules"),

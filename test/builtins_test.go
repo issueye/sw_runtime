@@ -1,6 +1,7 @@
 package test
 
 import (
+	"os"
 	"testing"
 
 	"sw_runtime/internal/builtins"
@@ -11,7 +12,8 @@ import (
 
 func TestBuiltinManager(t *testing.T) {
 	vm := goja.New()
-	manager := builtins.NewManager(vm)
+	basePath, _ := os.Getwd()
+	manager := builtins.NewManager(vm, basePath)
 
 	// 测试模块是否存在
 	expectedModules := []string{"path", "fs", "crypto", "zlib", "http", "redis", "sqlite"}
@@ -264,7 +266,8 @@ func TestCompressionModule(t *testing.T) {
 
 func TestModuleRegistration(t *testing.T) {
 	vm := goja.New()
-	manager := builtins.NewManager(vm)
+	basePath, _ := os.Getwd()
+	manager := builtins.NewManager(vm, basePath)
 
 	// 获取初始模块数量
 	initialModules := manager.GetModuleNames()

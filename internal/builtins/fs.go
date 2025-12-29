@@ -14,15 +14,21 @@ import (
 
 // FSModule 文件系统模块
 type FSModule struct {
-	vm       *goja.Runtime
-	basePath string
+	vm        *goja.Runtime
+	basePath  string
 	validator *security.PathValidator
 }
 
 // NewFSModule 创建文件系统模块
-func NewFSModule(vm *goja.Runtime) *FSModule {
-	// 获取当前工作目录作为基础路径（沙箱根目录）
-	basePath, _ := os.Getwd()
+func NewFSModule(vm *goja.Runtime, basePath string) *FSModule {
+	// 使用传入的基础路径，如果为空则使用当前工作目录
+	if basePath == "" {
+		var err error
+		basePath, err = os.Getwd()
+		if err != nil {
+			basePath = os.TempDir()
+		}
+	}
 
 	return &FSModule{
 		vm:        vm,
@@ -165,9 +171,14 @@ func (f *FSModule) existsSync(call goja.FunctionCall) goja.Value {
 	filename := call.Arguments[0].String()
 	safePath, err := f.validatePath(filename)
 	if err != nil {
+		fmt.Println("validatePath Error:", err)
 		return f.vm.ToValue(false)
 	}
 	_, err = os.Stat(safePath)
+	if err != nil {
+		fmt.Println("Error:", err)
+		return f.vm.ToValue(false)
+	}
 	return f.vm.ToValue(err == nil)
 }
 

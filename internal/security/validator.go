@@ -60,7 +60,9 @@ func (pv *PathValidator) Validate(path string) (string, error) {
 	// 检查是否在基础路径内
 	relPath, err := filepath.Rel(basePath, absPath)
 	if err != nil {
-		return "", fmt.Errorf("access denied: cannot resolve path relative to base")
+		// 在 Windows 上，跨驱动器的路径无法计算相对路径
+		// 例如：D:\path 和 E:\path 之间没有相对路径
+		return "", fmt.Errorf("access denied: cannot resolve path relative to base (different drive or path conflict)")
 	}
 
 	// 检查是否尝试逃逸

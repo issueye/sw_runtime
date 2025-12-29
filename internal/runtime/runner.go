@@ -78,7 +78,7 @@ func NewWithEventLoop(loopType EventLoopType) (*Runner, error) {
 		loop:    loop,
 		modules: moduleSystem,
 	}
-	r.setupBuiltins()
+	r.setupBuiltinsWithDir(basePath)
 
 	// 增加 Runner 计数
 	pool.GlobalMemoryMonitor.IncrementRunnerCount()
@@ -95,8 +95,49 @@ func NewOrPanic() *Runner {
 	return r
 }
 
-// setupBuiltins 注册内置函数
-func (r *Runner) setupBuiltins() {
+// NewWithWorkingDir 创建新的运行器，使用指定的工作目录
+func NewWithWorkingDir(workingDir string) (*Runner, error) {
+	vm := goja.New()
+	vm.SetFieldNameMapper(goja.TagFieldNameMapper("json", true))
+
+	// 根据类型创建事件循环
+	var loop eventLoopInterface
+	switch DefaultEventLoopType {
+	case EventLoopOptimized:
+		loop = NewEventLoop(vm)
+	default:
+		loop = NewSimpleEventLoop(vm)
+	}
+
+	// 使用指定的工作目录
+	basePath := filepath.Clean(workingDir)
+
+	moduleSystem := modules.NewSystem(vm, basePath)
+
+	r := &Runner{
+		vm:      vm,
+		loop:    loop,
+		modules: moduleSystem,
+	}
+	r.setupBuiltinsWithDir(basePath)
+
+	// 增加 Runner 计数
+	pool.GlobalMemoryMonitor.IncrementRunnerCount()
+
+	return r, nil
+}
+
+// NewOrPanicWithWorkingDir 创建新的运行器，使用指定工作目录
+func NewOrPanicWithWorkingDir(workingDir string) *Runner {
+	r, err := NewWithWorkingDir(workingDir)
+	if err != nil {
+		panic(err)
+	}
+	return r
+}
+
+// setupBuiltinsWithDir 注册内置函数，使用指定的工作目录
+func (r *Runner) setupBuiltinsWithDir(workingDir string) {
 	// console 对象
 	console := r.vm.NewObject()
 	console.Set("log", func(call goja.FunctionCall) goja.Value {
@@ -147,11 +188,7 @@ func (r *Runner) setupBuiltins() {
 
 		// 异步加载模块
 		go func() {
-			currentDir, err := os.Getwd()
-			if err != nil {
-				currentDir = "."
-			}
-			module, err := r.modules.LoadModule(id, currentDir)
+			module, err := r.modules.LoadModule(id, workingDir)
 			if err != nil {
 				reject(r.vm.NewGoError(err))
 			} else {
@@ -164,11 +201,7 @@ func (r *Runner) setupBuiltins() {
 
 	// 全局变量
 	r.vm.Set("global", r.vm.GlobalObject())
-	dir, err := os.Getwd()
-	if err != nil {
-		dir = "."
-	}
-	r.vm.Set("__dirname", dir)
+	r.vm.Set("__dirname", workingDir)
 	r.vm.Set("__filename", "")
 
 	// 启用 Promise

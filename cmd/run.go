@@ -16,6 +16,7 @@ var (
 	clearCache     bool
 	decryptKey     string
 	decryptKeyFile string
+	workingDir     string
 )
 
 // runCmd 代表 run 命令
@@ -53,7 +54,17 @@ var runCmd = &cobra.Command{
 		}
 
 		// 创建运行器
-		runner := runtime.NewOrPanic()
+		var runner *runtime.Runner
+		if workingDir != "" {
+			// 确保目录存在
+			if _, err := os.Stat(workingDir); os.IsNotExist(err) {
+				fmt.Fprintf(os.Stderr, "❌ 工作目录不存在: %s\n", workingDir)
+				os.Exit(1)
+			}
+			runner = runtime.NewOrPanicWithWorkingDir(workingDir)
+		} else {
+			runner = runtime.NewOrPanic()
+		}
 		defer runner.Close()
 
 		// 如果需要清除缓存
@@ -116,6 +127,7 @@ func init() {
 	runCmd.Flags().BoolVarP(&clearCache, "clear-cache", "c", false, "运行前清除模块缓存")
 	runCmd.Flags().StringVar(&decryptKey, "decrypt-key", "", "解密密钥（用于加密的 bundle 文件）")
 	runCmd.Flags().StringVar(&decryptKeyFile, "decrypt-key-file", "", "解密密钥文件路径")
+	runCmd.Flags().StringVar(&workingDir, "dir", "", "指定工作目录（用于 fs 模块的沙箱基础路径）")
 }
 
 // decryptBundleFile 解密 bundle 文件

@@ -11,15 +11,17 @@ type BuiltinModule interface {
 
 // Manager 内置模块管理器
 type Manager struct {
-	vm      *goja.Runtime
-	modules map[string]BuiltinModule
+	vm       *goja.Runtime
+	modules  map[string]BuiltinModule
+	basePath string
 }
 
 // NewManager 创建内置模块管理器
-func NewManager(vm *goja.Runtime) *Manager {
+func NewManager(vm *goja.Runtime, basePath string) *Manager {
 	m := &Manager{
-		vm:      vm,
-		modules: make(map[string]BuiltinModule),
+		vm:       vm,
+		modules:  make(map[string]BuiltinModule),
+		basePath: basePath,
 	}
 
 	// 注册内置模块
@@ -31,7 +33,7 @@ func NewManager(vm *goja.Runtime) *Manager {
 // registerBuiltinModules 注册所有内置模块
 func (m *Manager) registerBuiltinModules() {
 	m.modules["path"] = NewPathModule(m.vm)
-	m.modules["fs"] = NewFSModule(m.vm)
+	m.modules["fs"] = NewFSModule(m.vm, m.basePath)
 	m.modules["crypto"] = NewCryptoModule(m.vm)
 	m.modules["zlib"] = NewCompressionModule(m.vm)
 	m.modules["compression"] = NewCompressionModule(m.vm)

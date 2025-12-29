@@ -36,7 +36,7 @@ func NewSystem(vm *goja.Runtime, basePath string) *System {
 	ms := &System{
 		vm:             vm,
 		cache:          make(map[string]*Module),
-		builtinManager: builtins.NewManager(vm),
+		builtinManager: builtins.NewManager(vm, basePath),
 		basePath:       basePath,
 		nodeModules: []string{
 			filepath.Join(basePath, "node_modules"),
