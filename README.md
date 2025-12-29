@@ -152,8 +152,17 @@ client.get('https://api.example.com/data')
 ```javascript
 const server = require('httpserver');
 
-// 创建服务器
+// 创建服务器（使用默认配置）
 const app = server.createServer();
+
+// 创建带有自定义超时配置的服务器
+const appWithConfig = server.createServer({
+  readTimeout: 15,        // 读取超时（秒），默认 10秒
+  writeTimeout: 15,       // 写入超时（秒），默认 10秒
+  idleTimeout: 60,        // 空闲超时（秒），默认 120秒
+  readHeaderTimeout: 5,   // 读取请求头超时（秒），默认 10秒
+  maxHeaderBytes: 16384   // 最大请求头大小（字节），默认 8192
+});
 
 // 添加中间件
 app.use((req, res, next) => {

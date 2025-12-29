@@ -81,21 +81,27 @@ type HTTPServerModule struct {
 
 // HTTPServer HTTP 服务器实例
 type HTTPServer struct {
-	server         *http.Server
-	mux            *http.ServeMux
-	vm             *goja.Runtime
-	routes         map[string]map[string]goja.Value // method -> path -> handler
-	middleware     []goja.Value
-	ws             map[string]goja.Value // WebSocket 路由
-	upgrader       websocket.Upgrader    // WebSocket 升级器
-	mutex          sync.RWMutex
-	vmMutex        sync.Mutex // 保护 goja.Runtime 并发访问
+	server     *http.Server
+	mux        *http.ServeMux
+	vm         *goja.Runtime
+	routes     map[string]map[string]goja.Value // method -> path -> handler
+	middleware []goja.Value
+	ws         map[string]goja.Value // WebSocket 路由
+	upgrader   websocket.Upgrader    // WebSocket 升级器
+	mutex      sync.RWMutex
 
 	// WebSocket 安全配置
 	wsAllowedOrigins []string
 	wsAllowAll       bool // 默认 false，生产环境应该设为 false
 
-	// 请求处理队列（用于保护 goja.Runtime 并发访问）
+	// 超时配置
+	readTimeout       time.Duration
+	writeTimeout      time.Duration
+	idleTimeout       time.Duration
+	readHeaderTimeout time.Duration
+	maxHeaderBytes    int
+
+	// 请求处理队列（用于保护 goja.Runtime 并发访问，通过事件队列处理）
 	requestChan chan func(*goja.Runtime)
 	wg          sync.WaitGroup
 	stopChan    chan struct{}
@@ -140,14 +146,53 @@ func (h *HTTPServerModule) GetModule() *goja.Object {
 // createServer 创建 HTTP 服务器
 func (h *HTTPServerModule) createServer(call goja.FunctionCall) goja.Value {
 	server := &HTTPServer{
-		mux:             http.NewServeMux(),
-		vm:              h.vm,
-		routes:          make(map[string]map[string]goja.Value),
-		middleware:      make([]goja.Value, 0),
+		mux:              http.NewServeMux(),
+		vm:               h.vm,
+		routes:           make(map[string]map[string]goja.Value),
+		middleware:       make([]goja.Value, 0),
 		wsAllowedOrigins: []string{},
 		wsAllowAll:       false, // 默认不允许所有来源
 		requestChan:      make(chan func(*goja.Runtime), 100),
 		stopChan:         make(chan struct{}),
+		// 默认超时配置
+		readTimeout:       consts.DefaultReadTimeout,
+		writeTimeout:      consts.DefaultWriteTimeout,
+		idleTimeout:       consts.DefaultIdleTimeout,
+		readHeaderTimeout: 10 * time.Second,
+		maxHeaderBytes:    consts.MaxHeaderSize,
+	}
+
+	// 解析配置参数
+	if len(call.Arguments) > 0 && call.Arguments[0] != goja.Undefined() && call.Arguments[0] != goja.Null() {
+		configObj := call.Arguments[0].ToObject(h.vm)
+		if configObj != nil {
+			// 读取超时配置（秒）
+			if readTimeout := configObj.Get("readTimeout"); readTimeout != nil && readTimeout != goja.Undefined() {
+				if seconds, ok := readTimeout.Export().(int64); ok {
+					server.readTimeout = time.Duration(seconds) * time.Second
+				}
+			}
+			if writeTimeout := configObj.Get("writeTimeout"); writeTimeout != nil && writeTimeout != goja.Undefined() {
+				if seconds, ok := writeTimeout.Export().(int64); ok {
+					server.writeTimeout = time.Duration(seconds) * time.Second
+				}
+			}
+			if idleTimeout := configObj.Get("idleTimeout"); idleTimeout != nil && idleTimeout != goja.Undefined() {
+				if seconds, ok := idleTimeout.Export().(int64); ok {
+					server.idleTimeout = time.Duration(seconds) * time.Second
+				}
+			}
+			if readHeaderTimeout := configObj.Get("readHeaderTimeout"); readHeaderTimeout != nil && readHeaderTimeout != goja.Undefined() {
+				if seconds, ok := readHeaderTimeout.Export().(int64); ok {
+					server.readHeaderTimeout = time.Duration(seconds) * time.Second
+				}
+			}
+			if maxHeaderBytes := configObj.Get("maxHeaderBytes"); maxHeaderBytes != nil && maxHeaderBytes != goja.Undefined() {
+				if bytes, ok := maxHeaderBytes.Export().(int64); ok {
+					server.maxHeaderBytes = int(bytes)
+				}
+			}
+		}
 	}
 
 	// 初始化路由映射
@@ -451,8 +496,13 @@ func (h *HTTPServerModule) createListenHandler(server *HTTPServer) func(goja.Fun
 
 		go func() {
 			server.server = &http.Server{
-				Addr:    port,
-				Handler: server.mux,
+				Addr:              port,
+				Handler:           server.mux,
+				ReadTimeout:       server.readTimeout,
+				WriteTimeout:      server.writeTimeout,
+				IdleTimeout:       server.idleTimeout,
+				ReadHeaderTimeout: server.readHeaderTimeout,
+				MaxHeaderBytes:    server.maxHeaderBytes,
 			}
 
 			h.mutex.Lock()
@@ -460,21 +510,31 @@ func (h *HTTPServerModule) createListenHandler(server *HTTPServer) func(goja.Fun
 			h.mutex.Unlock()
 
 			// 调用回调函数
+			// 注意：回调在服务器启动前调用，此时不需要通过 requestChan
+			// 因为没有并发访问 VM 的风险
 			if callback != nil {
 				if fn, ok := goja.AssertFunction(callback); ok {
-					_, err := fn(goja.Undefined())
-					if err != nil {
-						// 忽略回调函数中的错误，不影响服务器启动
-						fmt.Printf("Callback error: %v\n", err)
-					}
+					func() {
+						defer func() {
+							if r := recover(); r != nil {
+								fmt.Printf("Callback panic: %v\n", r)
+							}
+						}()
+						_, err := fn(goja.Undefined())
+						if err != nil {
+							fmt.Printf("Callback error: %v\n", err)
+						}
+					}()
 				}
 			}
 
+			// resolve promise
 			resolve(h.vm.ToValue(fmt.Sprintf("Server listening on %s", port)))
 
 			// 启动服务器
 			if err := server.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 				unregisterServer(server)
+				// reject promise
 				reject(h.vm.NewGoError(err))
 			} else {
 				// 服务器正常关闭
@@ -515,8 +575,13 @@ func (h *HTTPServerModule) createListenTLSHandler(server *HTTPServer) func(goja.
 
 		go func() {
 			server.server = &http.Server{
-				Addr:    port,
-				Handler: server.mux,
+				Addr:              port,
+				Handler:           server.mux,
+				ReadTimeout:       server.readTimeout,
+				WriteTimeout:      server.writeTimeout,
+				IdleTimeout:       server.idleTimeout,
+				ReadHeaderTimeout: server.readHeaderTimeout,
+				MaxHeaderBytes:    server.maxHeaderBytes,
 			}
 
 			h.mutex.Lock()
@@ -526,19 +591,27 @@ func (h *HTTPServerModule) createListenTLSHandler(server *HTTPServer) func(goja.
 			// 调用回调函数
 			if callback != nil {
 				if fn, ok := goja.AssertFunction(callback); ok {
-					_, err := fn(goja.Undefined())
-					if err != nil {
-						// 忽略回调函数中的错误，不影响服务器启动
-						fmt.Printf("Callback error: %v\n", err)
-					}
+					func() {
+						defer func() {
+							if r := recover(); r != nil {
+								fmt.Printf("Callback panic: %v\n", r)
+							}
+						}()
+						_, err := fn(goja.Undefined())
+						if err != nil {
+							fmt.Printf("Callback error: %v\n", err)
+						}
+					}()
 				}
 			}
 
+			// resolve promise
 			resolve(h.vm.ToValue(fmt.Sprintf("HTTPS Server listening on %s", port)))
 
 			// 启动 HTTPS 服务器
 			if err := server.server.ListenAndServeTLS(certFile, keyFile); err != nil && err != http.ErrServerClosed {
 				unregisterServer(server)
+				// reject promise
 				reject(h.vm.NewGoError(err))
 			} else {
 				// 服务器正常关闭
@@ -614,53 +687,65 @@ func (h *HTTPServerModule) createHTTPHandler(server *HTTPServer, method, path st
 			statusCode:     200,
 		}
 
-		// 创建请求和响应对象（需要加锁保护）
-		server.vmMutex.Lock()
-		reqObj := h.createRequestObject(r)
-		resObj := h.createResponseObjectWithWrapper(rw, r)
-		server.vmMutex.Unlock()
+		// 使用 channel 等待处理完成
+		done := make(chan struct{})
 
-		// 执行中间件
-		middlewareIndex := 0
-		var executeNext func()
-		executeNext = func() {
-			if middlewareIndex >= len(middleware) {
-				// 所有中间件执行完毕，执行路由处理器
-				if fn, ok := goja.AssertFunction(handler); ok {
-					// 加锁保护 goja.Runtime 并发访问
-					server.vmMutex.Lock()
-					_, err := fn(goja.Undefined(), reqObj, resObj)
-					server.vmMutex.Unlock()
-
-					if err != nil && !rw.written {
-						http.Error(w, "Handler error: "+err.Error(), http.StatusInternalServerError)
+		// 提交到 VM 处理队列异步执行
+		select {
+		case server.requestChan <- func(vm *goja.Runtime) {
+			defer close(done)
+			defer func() {
+				if r := recover(); r != nil {
+					if !rw.written {
+						http.Error(w, fmt.Sprintf("Handler panic: %v", r), http.StatusInternalServerError)
 					}
 				}
-				return
-			}
+			}()
 
-			mw := middleware[middlewareIndex]
-			middlewareIndex++
+			// 在 VM goroutine 中创建请求和响应对象
+			reqObj := h.createRequestObject(r)
+			resObj := h.createResponseObjectWithWrapper(rw, r)
 
-			if fn, ok := goja.AssertFunction(mw); ok {
-				// 加锁保护 goja.Runtime 并发访问
-				server.vmMutex.Lock()
-				nextFunc := h.vm.ToValue(executeNext)
-				_, err := fn(goja.Undefined(), reqObj, resObj, nextFunc)
-				server.vmMutex.Unlock()
+			// 执行中间件链
+			middlewareIndex := 0
+			var executeNext func()
+			executeNext = func() {
+				if middlewareIndex >= len(middleware) {
+					// 所有中间件执行完毕，执行路由处理器
+					if fn, ok := goja.AssertFunction(handler); ok {
+						_, err := fn(goja.Undefined(), reqObj, resObj)
+						if err != nil && !rw.written {
+							http.Error(w, "Handler error: "+err.Error(), http.StatusInternalServerError)
+						}
+					}
+					return
+				}
 
-				if err != nil && !rw.written {
-					http.Error(w, "Middleware error", http.StatusInternalServerError)
+				mw := middleware[middlewareIndex]
+				middlewareIndex++
+
+				if fn, ok := goja.AssertFunction(mw); ok {
+					nextFunc := vm.ToValue(executeNext)
+					_, err := fn(goja.Undefined(), reqObj, resObj, nextFunc)
+					if err != nil && !rw.written {
+						http.Error(w, "Middleware error", http.StatusInternalServerError)
+					}
 				}
 			}
-		}
 
-		executeNext()
+			executeNext()
 
-		// 确保响应被写入
-		if !rw.written && len(rw.body) > 0 {
-			w.WriteHeader(rw.statusCode)
-			w.Write(rw.body)
+			// 确保响应被写入
+			if !rw.written && len(rw.body) > 0 {
+				w.WriteHeader(rw.statusCode)
+				w.Write(rw.body)
+			}
+		}:
+			// 等待处理完成
+			<-done
+		case <-time.After(30 * time.Second):
+			// 超时处理
+			http.Error(w, "Request processing timeout", http.StatusRequestTimeout)
 		}
 	}
 }
@@ -971,20 +1056,36 @@ func (h *HTTPServerModule) createWebSocketHTTPHandler(server *HTTPServer, path s
 			return
 		}
 
-		// 创建 WebSocket 连接对象
-		server.vmMutex.Lock()
-		wsObj := h.createWebSocketObject(server, conn)
-		server.vmMutex.Unlock()
+		// 使用 channel 等待处理完成
+		done := make(chan struct{})
 
-		// 调用处理器
-		if fn, ok := goja.AssertFunction(handler); ok {
-			server.vmMutex.Lock()
-			_, err := fn(goja.Undefined(), wsObj)
-			server.vmMutex.Unlock()
+		// 提交到 VM 处理队列异步执行
+		select {
+		case server.requestChan <- func(vm *goja.Runtime) {
+			defer close(done)
+			defer func() {
+				if r := recover(); r != nil {
+					fmt.Printf("WebSocket handler panic: %v\n", r)
+				}
+			}()
 
-			if err != nil {
-				fmt.Printf("WebSocket handler error: %v\n", err)
+			// 在 VM goroutine 中创建 WebSocket 连接对象
+			wsObj := h.createWebSocketObject(server, conn)
+
+			// 调用处理器
+			if fn, ok := goja.AssertFunction(handler); ok {
+				_, err := fn(goja.Undefined(), wsObj)
+				if err != nil {
+					fmt.Printf("WebSocket handler error: %v\n", err)
+				}
 			}
+		}:
+			// 等待处理完成
+			<-done
+		case <-time.After(30 * time.Second):
+			// 超时处理
+			fmt.Printf("WebSocket handler timeout\n")
+			conn.Close()
 		}
 	}
 }
@@ -1122,21 +1223,24 @@ func (h *HTTPServerModule) createWebSocketObject(server *HTTPServer, conn *webso
 					data = message
 				}
 
-				// 调用事件处理器（需要加锁保护）
+				// 调用事件处理器（提交到 VM 处理队列）
 				for _, handler := range handlers {
 					if fn, ok := goja.AssertFunction(handler); ok {
-						// 使用 defer/recover 保护
-						func() {
+						// 提交到 VM 处理队列异步执行
+						select {
+						case server.requestChan <- func(vm *goja.Runtime) {
 							defer func() {
 								if r := recover(); r != nil {
-									fmt.Printf("WebSocket handler panic: %v\n", r)
+									fmt.Printf("WebSocket message handler panic: %v\n", r)
 								}
 							}()
-
-							server.vmMutex.Lock()
 							fn(goja.Undefined(), h.vm.ToValue(data))
-							server.vmMutex.Unlock()
-						}()
+						}:
+							// 提交成功，继续
+						default:
+							// 队列已满，跳过
+							fmt.Printf("WebSocket message queue full, dropping message\n")
+						}
 					}
 				}
 			}

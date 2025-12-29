@@ -5,7 +5,10 @@
       "Bash(find:*)",
       "Bash(go test:*)",
       "Bash(timeout:*)",
-      "Bash(echo:*)"
+      "Bash(echo:*)",
+      "Bash(make build)",
+      "Bash(go mod tidy)",
+      "Bash(go list sw_runtime/internal/loop)"
     ]
   }
 }
