@@ -318,20 +318,12 @@ func (s *HTTPServer) startVMProcessor() {
 // stopVMProcessor 停止 VM 处理器
 func (s *HTTPServer) stopVMProcessor() {
 	s.stopOnce.Do(func() {
+		// 先发送停止信号
+		close(s.stopChan)
+		// 等待一小段时间让 VMProcessor 处理完当前任务
+		time.Sleep(100 * time.Millisecond)
 		// 关闭请求通道
-		select {
-		case <-s.requestChan:
-			// 已关闭
-		default:
-			close(s.requestChan)
-		}
-		// 发送停止信号
-		select {
-		case <-s.stopChan:
-			// 已经关闭
-		default:
-			close(s.stopChan)
-		}
+		close(s.requestChan)
 	})
 }
 
@@ -509,12 +501,13 @@ func (h *HTTPServerModule) createListenHandler(server *HTTPServer) func(goja.Fun
 			h.servers[port] = server
 			h.mutex.Unlock()
 
-			// 调用回调函数
-			// 注意：回调在服务器启动前调用，此时不需要通过 requestChan
-			// 因为没有并发访问 VM 的风险
+			// 通过 requestChan 调用回调函数和 resolve（确保线程安全）
 			if callback != nil {
 				if fn, ok := goja.AssertFunction(callback); ok {
-					func() {
+					done := make(chan struct{})
+					select {
+					case server.requestChan <- func(vm *goja.Runtime) {
+						defer close(done)
 						defer func() {
 							if r := recover(); r != nil {
 								fmt.Printf("Callback panic: %v\n", r)
@@ -524,18 +517,40 @@ func (h *HTTPServerModule) createListenHandler(server *HTTPServer) func(goja.Fun
 						if err != nil {
 							fmt.Printf("Callback error: %v\n", err)
 						}
-					}()
+					}:
+						<-done
+					case <-time.After(5 * time.Second):
+						fmt.Printf("Callback timeout\n")
+					}
 				}
 			}
 
-			// resolve promise
-			resolve(h.vm.ToValue(fmt.Sprintf("Server listening on %s", port)))
+			// resolve promise（通过 requestChan 确保线程安全）
+			resolveDone := make(chan struct{})
+			select {
+			case server.requestChan <- func(vm *goja.Runtime) {
+				defer close(resolveDone)
+				resolve(vm.ToValue(fmt.Sprintf("Server listening on %s", port)))
+			}:
+				<-resolveDone
+			case <-time.After(5 * time.Second):
+				fmt.Printf("Resolve timeout\n")
+			}
 
 			// 启动服务器
 			if err := server.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 				unregisterServer(server)
-				// reject promise
-				reject(h.vm.NewGoError(err))
+				// reject promise（通过 requestChan 确保线程安全）
+				rejectDone := make(chan struct{})
+				select {
+				case server.requestChan <- func(vm *goja.Runtime) {
+					defer close(rejectDone)
+					reject(vm.NewGoError(err))
+				}:
+					<-rejectDone
+				case <-time.After(5 * time.Second):
+					fmt.Printf("Reject timeout\n")
+				}
 			} else {
 				// 服务器正常关闭
 				unregisterServer(server)
@@ -588,10 +603,13 @@ func (h *HTTPServerModule) createListenTLSHandler(server *HTTPServer) func(goja.
 			h.servers[port] = server
 			h.mutex.Unlock()
 
-			// 调用回调函数
+			// 通过 requestChan 调用回调函数和 resolve（确保线程安全）
 			if callback != nil {
 				if fn, ok := goja.AssertFunction(callback); ok {
-					func() {
+					done := make(chan struct{})
+					select {
+					case server.requestChan <- func(vm *goja.Runtime) {
+						defer close(done)
 						defer func() {
 							if r := recover(); r != nil {
 								fmt.Printf("Callback panic: %v\n", r)
@@ -601,18 +619,40 @@ func (h *HTTPServerModule) createListenTLSHandler(server *HTTPServer) func(goja.
 						if err != nil {
 							fmt.Printf("Callback error: %v\n", err)
 						}
-					}()
+					}:
+						<-done
+					case <-time.After(5 * time.Second):
+						fmt.Printf("Callback timeout\n")
+					}
 				}
 			}
 
-			// resolve promise
-			resolve(h.vm.ToValue(fmt.Sprintf("HTTPS Server listening on %s", port)))
+			// resolve promise（通过 requestChan 确保线程安全）
+			resolveDone := make(chan struct{})
+			select {
+			case server.requestChan <- func(vm *goja.Runtime) {
+				defer close(resolveDone)
+				resolve(vm.ToValue(fmt.Sprintf("HTTPS Server listening on %s", port)))
+			}:
+				<-resolveDone
+			case <-time.After(5 * time.Second):
+				fmt.Printf("Resolve timeout\n")
+			}
 
 			// 启动 HTTPS 服务器
 			if err := server.server.ListenAndServeTLS(certFile, keyFile); err != nil && err != http.ErrServerClosed {
 				unregisterServer(server)
-				// reject promise
-				reject(h.vm.NewGoError(err))
+				// reject promise（通过 requestChan 确保线程安全）
+				rejectDone := make(chan struct{})
+				select {
+				case server.requestChan <- func(vm *goja.Runtime) {
+					defer close(rejectDone)
+					reject(vm.NewGoError(err))
+				}:
+					<-rejectDone
+				case <-time.After(5 * time.Second):
+					fmt.Printf("Reject timeout\n")
+				}
 			} else {
 				// 服务器正常关闭
 				unregisterServer(server)
@@ -626,22 +666,20 @@ func (h *HTTPServerModule) createListenTLSHandler(server *HTTPServer) func(goja.
 // createCloseHandler 创建关闭处理器
 func (h *HTTPServerModule) createCloseHandler(server *HTTPServer) func(goja.FunctionCall) goja.Value {
 	return func(call goja.FunctionCall) goja.Value {
-		promise, resolve, reject := h.vm.NewPromise()
-
 		go func() {
-			// 1. 停止 VM 处理器
-			server.stopVMProcessor()
-
-			// 2. 关闭 HTTP 服务器
+			// 1. 关闭 HTTP 服务器
 			if server.server != nil {
 				ctx, cancel := context.WithTimeout(context.Background(), consts.DefaultHTTPTimeout)
 				defer cancel()
 
 				if err := server.server.Shutdown(ctx); err != nil {
-					reject(h.vm.NewGoError(err))
+					fmt.Printf("Server shutdown error: %v\n", err)
 					return
 				}
 			}
+
+			// 2. 停止 VM 处理器
+			server.stopVMProcessor()
 
 			// 3. 等待所有 goroutine 完成
 			done := make(chan struct{})
@@ -652,13 +690,13 @@ func (h *HTTPServerModule) createCloseHandler(server *HTTPServer) func(goja.Func
 
 			select {
 			case <-done:
-				resolve(h.vm.ToValue("Server closed"))
+				fmt.Println("Server closed successfully")
 			case <-time.After(10 * time.Second):
-				reject(h.vm.NewGoError(fmt.Errorf("timeout waiting for goroutines to finish")))
+				fmt.Printf("Timeout waiting for goroutines to finish\n")
 			}
 		}()
 
-		return h.vm.ToValue(promise)
+		return goja.Undefined()
 	}
 }
 

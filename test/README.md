@@ -66,6 +66,14 @@
   - 内存使用测试
   - 并发操作性能
 
+- **`vmprocessor_performance_test.go`** - VMProcessor 性能测试 ⭐ **NEW**
+  - 串行请求性能测试
+  - 并发请求性能测试（峰值 22,921 req/s）
+  - 高并发压力测试（50 并发）
+  - 混合路由性能测试
+  - 长时间稳定性测试（10 秒持续压力）
+  - **📊 详细报告**: [VMPROCESSOR_PERFORMANCE_REPORT.md](VMPROCESSOR_PERFORMANCE_REPORT.md)
+
 ## 运行测试
 
 ### 运行所有测试
@@ -86,6 +94,13 @@ go test ./test/integration_test.go
 ```bash
 go test -bench=. ./test/benchmark_test.go
 ```
+
+### 运行 VMProcessor 性能测试
+```bash
+go test -v ./test -run "TestVMProcessorPerformance" -count=1 -timeout=5m
+```
+
+查看详细性能报告: [test/VMPROCESSOR_PERFORMANCE_REPORT.md](VMPROCESSOR_PERFORMANCE_REPORT.md)
 
 ### 运行特定的基准测试
 ```bash
