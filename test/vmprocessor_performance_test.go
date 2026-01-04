@@ -15,6 +15,10 @@ import (
 
 // TestVMProcessorPerformance VMProcessor 性能测试
 func TestVMProcessorPerformance(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping VMProcessor performance tests in short mode")
+	}
+
 	t.Log("==========================================")
 	t.Log("VMProcessor 性能测试报告")
 	t.Log("==========================================\n")
@@ -42,6 +46,16 @@ func TestVMProcessorPerformance(t *testing.T) {
 	// 测试 5: 长时间稳定性测试
 	t.Run("LongRunningStability", func(t *testing.T) {
 		testLongRunningStability(t)
+	})
+
+	// 测试 6: 大响应体高并发压力测试
+	t.Run("LargePayloadStress", func(t *testing.T) {
+		testLargePayloadStress(t)
+	})
+
+	// 测试 7: 异常处理在高负载下的稳定性
+	t.Run("ErrorHandlingUnderLoad", func(t *testing.T) {
+		testErrorHandlingUnderLoad(t)
 	})
 
 	t.Log("\n==========================================")
@@ -458,5 +472,191 @@ func testLongRunningStability(t *testing.T) {
 		t.Logf("   ⚠️  长时间运行基本稳定")
 	} else {
 		t.Errorf("   ❌ 长时间运行不稳定")
+	}
+}
+
+// testLargePayloadStress 大响应体高并发压力测试
+func testLargePayloadStress(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping large payload stress test in short mode")
+	}
+
+	vm := goja.New()
+	httpModule := builtins.NewHTTPServerModule(vm)
+	vm.Set("httpserver", httpModule.GetModule())
+
+	script := `
+		const server = httpserver.createServer({
+			readTimeout: 60,
+			writeTimeout: 60
+		});
+
+		const largeData = 'x'.repeat(1024 * 50); // ~50KB
+
+		server.get('/large', (req, res) => {
+			res.json({
+				status: 'ok',
+				size: largeData.length,
+				data: largeData
+			});
+		});
+
+		server.listen('38906');
+	`
+
+	_, err := vm.RunString(script)
+	if err != nil {
+		t.Fatalf("创建服务器失败: %v", err)
+	}
+
+	time.Sleep(500 * time.Millisecond)
+
+	concurrency := 20
+	requestsPerWorker := 25
+	totalRequests := concurrency * requestsPerWorker
+
+	var wg sync.WaitGroup
+	var successCount, errorCount int32
+	var totalBytes int64
+
+	startTime := time.Now()
+
+	for i := 0; i < concurrency; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for j := 0; j < requestsPerWorker; j++ {
+				resp, err := http.Get("http://localhost:38906/large")
+				if err != nil {
+					atomic.AddInt32(&errorCount, 1)
+					continue
+				}
+				body, _ := io.ReadAll(resp.Body)
+				resp.Body.Close()
+
+				if resp.StatusCode == http.StatusOK {
+					atomic.AddInt32(&successCount, 1)
+					atomic.AddInt64(&totalBytes, int64(len(body)))
+				} else {
+					atomic.AddInt32(&errorCount, 1)
+				}
+			}
+		}()
+	}
+
+	wg.Wait()
+	duration := time.Since(startTime)
+	throughput := float64(totalRequests) / duration.Seconds()
+	successRate := float64(successCount) / float64(totalRequests) * 100
+	avgRespSize := float64(totalBytes) / float64(successCount)
+
+	t.Logf("\n📊 大响应体高并发压力测试:")
+	t.Logf("   - 并发数: %d", concurrency)
+	t.Logf("   - 总请求数: %d", totalRequests)
+	t.Logf("   - 成功请求: %d", successCount)
+	t.Logf("   - 失败请求: %d", errorCount)
+	t.Logf("   - 成功率: %.2f%%", successRate)
+	t.Logf("   - 总耗时: %v", duration)
+	t.Logf("   - 吞吐量: %.2f req/s", throughput)
+	t.Logf("   - 平均响应体大小: %.2f bytes", avgRespSize)
+
+	if successRate < 99 {
+		t.Errorf("   ❌ 大响应体在高并发下成功率过低: %.2f%%", successRate)
+	}
+}
+
+// testErrorHandlingUnderLoad 异常处理在高负载下的稳定性测试
+func testErrorHandlingUnderLoad(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping error handling stress test in short mode")
+	}
+
+	vm := goja.New()
+	httpModule := builtins.NewHTTPServerModule(vm)
+	vm.Set("httpserver", httpModule.GetModule())
+
+	script := `
+		let counter = 0;
+		const server = httpserver.createServer({
+			readTimeout: 30,
+			writeTimeout: 30
+		});
+
+		server.get('/unstable', (req, res) => {
+			counter++;
+			// 每 10 个请求模拟一次异常
+			if (counter % 10 === 0) {
+				throw new Error('Simulated handler error');
+			}
+			res.json({ status: 'ok', id: counter });
+		});
+
+		server.listen('38907');
+	`
+
+	_, err := vm.RunString(script)
+	if err != nil {
+		t.Fatalf("创建服务器失败: %v", err)
+	}
+
+	time.Sleep(500 * time.Millisecond)
+
+	concurrency := 20
+	requestsPerWorker := 30
+	totalRequests := concurrency * requestsPerWorker
+
+	var wg sync.WaitGroup
+	var successCount, errorCount int32
+
+	startTime := time.Now()
+
+	for i := 0; i < concurrency; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for j := 0; j < requestsPerWorker; j++ {
+				resp, err := http.Get("http://localhost:38907/unstable")
+				if err != nil {
+					atomic.AddInt32(&errorCount, 1)
+					continue
+				}
+				io.ReadAll(resp.Body)
+				resp.Body.Close()
+
+				if resp.StatusCode == http.StatusOK {
+					atomic.AddInt32(&successCount, 1)
+				} else {
+					atomic.AddInt32(&errorCount, 1)
+				}
+			}
+		}()
+	}
+
+	wg.Wait()
+	duration := time.Since(startTime)
+	successRate := float64(successCount) / float64(totalRequests) * 100
+
+	t.Logf("\n📊 异常处理在高负载下的稳定性:")
+	t.Logf("   - 并发数: %d", concurrency)
+	t.Logf("   - 总请求数: %d", totalRequests)
+	t.Logf("   - 成功请求: %d", successCount)
+	t.Logf("   - 失败请求: %d", errorCount)
+	t.Logf("   - 成功率: %.2f%%", successRate)
+	t.Logf("   - 总耗时: %v", duration)
+
+	// 由于我们主动制造了一部分错误，这里只要求大部分请求仍然成功
+	if successRate < 80 {
+		t.Errorf("   ❌ 在模拟异常场景下成功率过低: %.2f%%", successRate)
+	}
+
+	// 压测结束后再发起一次请求，验证服务仍然可用
+	resp, err := http.Get("http://localhost:38907/unstable")
+	if err != nil {
+		t.Fatalf("压测结束后服务不可用: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("压测结束后预期状态码 200，实际为 %d", resp.StatusCode)
 	}
 }

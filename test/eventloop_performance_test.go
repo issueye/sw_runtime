@@ -140,6 +140,10 @@ func TestEventLoopMemoryLeak(t *testing.T) {
 
 // TestEventLoopStressTest 压力测试
 func TestEventLoopStressTest(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping event loop stress test in short mode")
+	}
+
 	runner := runtime.NewOrPanic()
 	defer runner.Close()
 

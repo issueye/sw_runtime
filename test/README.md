@@ -76,7 +76,13 @@
 
 ## 运行测试
 
-### 运行所有测试
+### 快速测试（推荐，CI 使用）
+> 跳过耗时较长的压测和性能测试，用于日常开发和持续集成。
+```bash
+go test -short ./test/...
+```
+
+### 全量测试（包含压测，可能耗时较长）
 ```bash
 go test ./test/...
 ```
@@ -90,13 +96,15 @@ go test ./test/modules_test.go
 go test ./test/integration_test.go
 ```
 
-### 运行性能基准测试
+### 运行性能基准测试（压测）
 ```bash
-go test -bench=. ./test/benchmark_test.go
+# 按需在本地或专门的性能环境中运行
+go test -bench=BenchmarkRunner ./test/benchmark_test.go -benchtime=1s
 ```
 
-### 运行 VMProcessor 性能测试
+### 运行 VMProcessor 性能测试 / 压测
 ```bash
+# 完整 VMProcessor 压测套件（包含高并发与长时间稳定性）
 go test -v ./test -run "TestVMProcessorPerformance" -count=1 -timeout=5m
 ```
 
@@ -159,15 +167,22 @@ go tool cover -html=coverage.out
 
 ```yaml
 # GitHub Actions 示例
-- name: Run Tests
+- name: Run Tests (fast)
   run: |
-    go test -v ./test/...
-    go test -bench=. ./test/benchmark_test.go
+    # 仅运行功能/集成测试，跳过压测与重型性能测试
+    go test -short -v ./test/...
 
 - name: Generate Coverage Report
   run: |
-    go test -coverprofile=coverage.out ./test/...
+    go test -short -coverprofile=coverage.out ./test/...
     go tool cover -html=coverage.out -o coverage.html
+
+# 可选：在专门的性能 Job 中运行压测
+- name: Run Performance & Stress Tests (optional)
+  if: github.event_name == 'workflow_dispatch'
+  run: |
+    go test -v ./test -run "TestVMProcessorPerformance" -count=1 -timeout=5m
+    go test -bench=BenchmarkRunner ./test/benchmark_test.go -benchtime=1s
 ```
 
 ## 贡献指南
