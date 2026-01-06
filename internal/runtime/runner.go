@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
 
 	"sw_runtime/internal/modules"
 	"sw_runtime/internal/pool"
@@ -43,6 +44,59 @@ type Runner struct {
 	vm      *goja.Runtime
 	loop    eventLoopInterface
 	modules *modules.System
+}
+
+// RunnerPool Runner 对象池，用于复用 Runner 实例以减少频繁创建开销。
+// 注意：池中的 Runner 会复用同一个 JS VM，因此全局状态（global 上挂的变量等）不会自动重置。
+// 仅在你能接受跨调用共享全局状态，或者每次手动清理全局变量的场景下使用。
+type RunnerPool struct {
+	pool sync.Pool
+}
+
+// defaultRunnerPool 默认全局 Runner 池。
+var defaultRunnerPool = NewRunnerPool()
+
+// NewRunnerPool 创建新的 Runner 池。
+func NewRunnerPool() *RunnerPool {
+	rp := &RunnerPool{}
+	rp.pool.New = func() interface{} {
+		// 对于池中暂无可用实例时，退回到正常的 New 创建逻辑。
+		r, err := New()
+		if err != nil {
+			panic(err)
+		}
+		return r
+	}
+	return rp
+}
+
+// Acquire 从默认 Runner 池获取一个 Runner。
+func (rp *RunnerPool) Acquire() *Runner {
+	return rp.pool.Get().(*Runner)
+}
+
+// Release 将 Runner 放回默认 Runner 池以便复用。
+// 当前实现仅清空模块缓存，不会重置 JS 全局状态，也不会主动关闭 HTTP 等长连接服务。
+// 如需完全隔离环境，请继续使用 New/NewOrPanic + Close，而不要复用池。
+func (rp *RunnerPool) Release(r *Runner) {
+	if r == nil {
+		return
+	}
+
+	// 清理模块缓存，避免上一次加载的文件模块残留。
+	r.ClearModuleCache()
+
+	rp.pool.Put(r)
+}
+
+// AcquireRunner 从默认池获取 Runner 的便捷函数。
+func AcquireRunner() *Runner {
+	return defaultRunnerPool.Acquire()
+}
+
+// ReleaseRunner 将 Runner 归还给默认池的便捷函数。
+func ReleaseRunner(r *Runner) {
+	defaultRunnerPool.Release(r)
 }
 
 // New 创建新的运行器（使用默认事件循环类型）
@@ -232,6 +286,17 @@ func (r *Runner) RunCode(code string) error {
 	return nil
 }
 
+// SafeRunCode 执行代码并捕获底层运行时 panic，
+// 将其包装为 error 返回，避免测试或调用方进程直接崩溃。
+func (r *Runner) SafeRunCode(code string) (err error) {
+	defer func() {
+		if v := recover(); v != nil {
+			err = fmt.Errorf("runtime panic: %v", v)
+		}
+	}()
+	return r.RunCode(code)
+}
+
 // RunFile 执行 TypeScript/JavaScript 文件
 func (r *Runner) RunFile(filename string) error {
 	content, err := os.ReadFile(filename)
@@ -259,6 +324,16 @@ func (r *Runner) RunFile(filename string) error {
 	// 处理异步任务
 	r.loop.WaitAndProcess()
 	return nil
+}
+
+// SafeRunFile 执行文件并捕获底层运行时 panic。
+func (r *Runner) SafeRunFile(filename string) (err error) {
+	defer func() {
+		if v := recover(); v != nil {
+			err = fmt.Errorf("runtime panic: %v", v)
+		}
+	}()
+	return r.RunFile(filename)
 }
 
 // SetValue 设置全局变量
