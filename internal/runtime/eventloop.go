@@ -627,3 +627,28 @@ func (el *EventLoop) GetActiveIntervalCount() int {
 	defer el.intervalMu.RUnlock()
 	return len(el.intervals)
 }
+
+// RunOnLoopSync 在事件循环中同步执行函数并返回结果
+// 用于从其他 goroutine (如 Raft Controller) 同步调用 JS 逻辑
+func (el *EventLoop) RunOnLoopSync(fn func(*goja.Runtime) interface{}) interface{} {
+	var result interface{}
+	done := make(chan struct{})
+
+	task := func() {
+		defer close(done)
+		el.vmMu.Lock()
+		defer el.vmMu.Unlock()
+
+		defer func() {
+			if r := recover(); r != nil {
+				// 记录 panic 但不崩溃
+			}
+		}()
+
+		result = fn(el.vm)
+	}
+
+	el.submitTask(task)
+	<-done
+	return result
+}

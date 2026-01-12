@@ -377,6 +377,11 @@ func (ms *System) SetNextTick(fn func(goja.FunctionCall) goja.Value) {
 	ms.builtinManager.SetNextTick(fn)
 }
 
+// SetRunOnLoopSync 设置 RunOnLoopSync 函数
+func (ms *System) SetRunOnLoopSync(fn func(func(*goja.Runtime) interface{}) interface{}) {
+	ms.builtinManager.SetRunOnLoopSync(fn)
+}
+
 // GetBuiltinModule 获取内置模块对象
 func (ms *System) GetBuiltinModule(name string) *goja.Object {
 	if module, exists := ms.builtinManager.GetModule(name); exists {

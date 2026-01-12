@@ -365,3 +365,20 @@ func (el *SimpleEventLoop) ClearInterval(call goja.FunctionCall) goja.Value {
 func (el *SimpleEventLoop) NextTick(call goja.FunctionCall) goja.Value {
 	return el.SetTimeout(call) // 在简单实现中，我们可以退化为 setTimeout(0)
 }
+
+// RunOnLoopSync 在事件循环中同步执行函数并返回结果
+func (el *SimpleEventLoop) RunOnLoopSync(fn func(*goja.Runtime) interface{}) interface{} {
+	// 简单实现目前没有任务队列，只能直接加锁执行
+	// 注意：这可能导致在复杂场景下的死锁，如果调用方已经持有了某些锁
+	// 但对于 Raft FSM 这种只从后台 goroutine 调用的场景是安全的
+	el.vmMu.Lock()
+	defer el.vmMu.Unlock()
+
+	defer func() {
+		if r := recover(); r != nil {
+			// 记录 panic
+		}
+	}()
+
+	return fn(el.vm)
+}

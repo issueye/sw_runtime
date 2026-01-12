@@ -40,6 +40,7 @@ type eventLoopInterface interface {
 	SetInterval(call goja.FunctionCall) goja.Value
 	ClearInterval(call goja.FunctionCall) goja.Value
 	NextTick(call goja.FunctionCall) goja.Value
+	RunOnLoopSync(func(*goja.Runtime) interface{}) interface{}
 }
 
 // Runner JavaScript/TypeScript 运行器
@@ -269,6 +270,8 @@ func (r *Runner) setupBuiltinsWithDir(workingDir string) {
 		r.vm.Set("process", process)
 		// 设置 nextTick 函数到管理器，由 process 模块调用
 		r.modules.SetNextTick(r.loop.NextTick)
+		// 设置 RunOnLoopSync 函数，由 Raft 等模块使用
+		r.modules.SetRunOnLoopSync(r.loop.RunOnLoopSync)
 	}
 
 	// 启用 Promise

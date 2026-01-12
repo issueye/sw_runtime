@@ -13,12 +13,13 @@ type BuiltinModule interface {
 
 // Manager 内置模块管理器
 type Manager struct {
-	vm           *goja.Runtime
-	modules      map[string]BuiltinModule
-	basePath     string
-	argv         []string
-	startTime    time.Time
-	nextTickFunc func(goja.FunctionCall) goja.Value
+	vm                *goja.Runtime
+	modules           map[string]BuiltinModule
+	basePath          string
+	argv              []string
+	startTime         time.Time
+	nextTickFunc      func(goja.FunctionCall) goja.Value
+	runOnLoopSyncFunc func(func(*goja.Runtime) interface{}) interface{}
 }
 
 // NewManager 创建内置模块管理器
@@ -45,13 +46,12 @@ func (m *Manager) registerBuiltinModules() {
 	m.modules["compression"] = NewCompressionModule(m.vm)
 	m.modules["http/client"] = NewHTTPModule(m.vm)
 	m.modules["http/server"] = NewHTTPServerModule(m.vm)
-	m.modules["redis"] = NewRedisModule(m.vm)
-	m.modules["sqlite"] = NewSQLiteModule(m.vm)
+	m.modules["http/ws"] = NewWebSocketModule(m.vm) // 简短别名
+	m.modules["db/redis"] = NewRedisModule(m.vm)
+	m.modules["db/sqlite"] = NewSQLiteModule(m.vm)
 	m.modules["process"] = NewProcessModule(m.vm, m)
 	m.modules["process/exec"] = NewExecModule(m.vm)
-	m.modules["child_process"] = NewExecModule(m.vm) // Node.js 风格别名
-	m.modules["websocket"] = NewWebSocketModule(m.vm)
-	m.modules["ws"] = NewWebSocketModule(m.vm) // 简短别名
+	m.modules["raft"] = NewRaftModule(m.vm, m)
 	m.modules["net"] = NewNetModule(m.vm)
 	m.modules["proxy"] = NewProxyModule(m.vm)
 	m.modules["time"] = NewTimeModule(m.vm)
@@ -103,4 +103,18 @@ func (m *Manager) SetStartTime(t time.Time) {
 // SetNextTick 设置 NextTick 函数
 func (m *Manager) SetNextTick(fn func(goja.FunctionCall) goja.Value) {
 	m.nextTickFunc = fn
+}
+
+// SetRunOnLoopSync 设置 RunOnLoopSync 函数
+func (m *Manager) SetRunOnLoopSync(fn func(func(*goja.Runtime) interface{}) interface{}) {
+	m.runOnLoopSyncFunc = fn
+}
+
+// RunOnLoopSync 同步执行
+func (m *Manager) RunOnLoopSync(fn func(*goja.Runtime) interface{}) interface{} {
+	if m.runOnLoopSyncFunc != nil {
+		return m.runOnLoopSyncFunc(fn)
+	}
+	// Fallback or panic? For now return nil
+	return nil
 }

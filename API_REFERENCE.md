@@ -20,6 +20,7 @@
 - [time - 时间处理模块](#time---时间处理模块)
 - [process - 进程模块](#process---进程模块)
 - [process/exec - 进程执行模块](#processexec---进程执行模块)
+- [raft - 分布式一致性模块](#raft---分布式一致性模块)
 
 ---
 
@@ -2009,6 +2010,46 @@ async function main() {
 }
 
 main().catch(console.error);
+```
+
+### Raft 分布式一致性示例
+
+```javascript
+const raft = require("raft");
+
+// 创建 FSM
+const fsm = {
+  data: {},
+  apply: function (logData) {
+    const cmd = JSON.parse(logData);
+    if (cmd.op === "set") {
+      this.data[cmd.key] = cmd.value;
+    }
+  },
+  snapshot: function () {
+    return this.data;
+  },
+  restore: function (snapshotData) {
+    this.data = JSON.parse(snapshotData);
+  },
+};
+
+// 创建节点
+const node = raft.createNode({
+  nodeID: "node1",
+  advertiseAddr: "127.0.0.1:9001",
+  dataDir: "./raft_data",
+  fsm: fsm,
+});
+
+// 启动
+node.bootstrap();
+
+// 应用日志
+setTimeout(async () => {
+  await node.apply({ op: "set", key: "foo", value: "bar" });
+  console.log("Applied!");
+}, 3000);
 ```
 
 ---
