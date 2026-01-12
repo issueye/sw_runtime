@@ -37,9 +37,8 @@ func (m *Manager) registerBuiltinModules() {
 	m.modules["crypto"] = NewCryptoModule(m.vm)
 	m.modules["zlib"] = NewCompressionModule(m.vm)
 	m.modules["compression"] = NewCompressionModule(m.vm)
-	m.modules["http"] = NewHTTPModule(m.vm)
-	m.modules["httpserver"] = NewHTTPServerModule(m.vm)
-	m.modules["server"] = NewHTTPServerModule(m.vm) // 别名
+	m.modules["http/client"] = NewHTTPModule(m.vm)
+	m.modules["http/server"] = NewHTTPServerModule(m.vm)
 	m.modules["redis"] = NewRedisModule(m.vm)
 	m.modules["sqlite"] = NewSQLiteModule(m.vm)
 	m.modules["exec"] = NewExecModule(m.vm)
@@ -49,6 +48,8 @@ func (m *Manager) registerBuiltinModules() {
 	m.modules["net"] = NewNetModule(m.vm)
 	m.modules["proxy"] = NewProxyModule(m.vm)
 	m.modules["time"] = NewTimeModule(m.vm)
+	m.modules["os"] = NewOSModule(m.vm)
+	m.modules["util"] = NewUtilModule(m.vm)
 }
 
 // GetModule 获取内置模块

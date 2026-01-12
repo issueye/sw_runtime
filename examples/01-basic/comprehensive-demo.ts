@@ -3,7 +3,7 @@
 console.log('=== SW Runtime 综合功能演示 ===');
 
 // 导入所有模块
-const http = require('http');
+const http = require('http/client');
 const redis = require('redis');
 const crypto = require('crypto');
 const compression = require('compression');

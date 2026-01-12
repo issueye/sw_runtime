@@ -1,7 +1,7 @@
 // WebSocket 聊天室示例
-console.log('=== WebSocket 聊天室示例 ===\n');
+console.log("=== WebSocket 聊天室示例 ===\n");
 
-const server = require('httpserver');
+const server = require("http/server");
 
 const app = server.createServer();
 
@@ -9,8 +9,8 @@ const app = server.createServer();
 const clients = [];
 
 // HTTP 路由 - 提供聊天界面
-app.get('/', (req, res) => {
-    res.html(`
+app.get("/", (req, res) => {
+  res.html(`
         <!DOCTYPE html>
         <html>
         <head>
@@ -183,86 +183,89 @@ app.get('/', (req, res) => {
 });
 
 // WebSocket 路由 - 聊天功能
-app.ws('/chat', (ws) => {
-    console.log('新客户端连接');
-    
-    // 添加到客户端列表
-    clients.push(ws);
-    
-    // 广播用户加入消息
+app.ws("/chat", (ws) => {
+  console.log("新客户端连接");
+
+  // 添加到客户端列表
+  clients.push(ws);
+
+  // 广播用户加入消息
+  broadcastMessage(
+    {
+      type: "system",
+      text: "新用户加入聊天室 (当前在线: " + clients.length + "人)",
+      timestamp: new Date().toISOString(),
+    },
+    ws
+  );
+
+  // 监听消息
+  ws.on("message", (data) => {
+    console.log("收到消息:", data);
+
+    // 广播消息给所有客户端
     broadcastMessage({
-        type: 'system',
-        text: '新用户加入聊天室 (当前在线: ' + clients.length + '人)',
-        timestamp: new Date().toISOString()
-    }, ws);
-    
-    // 监听消息
-    ws.on('message', (data) => {
-        console.log('收到消息:', data);
-        
-        // 广播消息给所有客户端
-        broadcastMessage({
-            type: 'message',
-            user: '用户' + clients.indexOf(ws),
-            text: data.text || data,
-            timestamp: new Date().toISOString()
-        });
+      type: "message",
+      user: "用户" + clients.indexOf(ws),
+      text: data.text || data,
+      timestamp: new Date().toISOString(),
     });
-    
-    // 监听错误
-    ws.on('error', (error) => {
-        console.log('WebSocket 错误:', error.message);
+  });
+
+  // 监听错误
+  ws.on("error", (error) => {
+    console.log("WebSocket 错误:", error.message);
+  });
+
+  // 监听关闭
+  ws.on("close", () => {
+    console.log("客户端断开连接");
+
+    // 从客户端列表移除
+    const index = clients.indexOf(ws);
+    if (index > -1) {
+      clients.splice(index, 1);
+    }
+
+    // 广播用户离开消息
+    broadcastMessage({
+      type: "system",
+      text: "用户离开聊天室 (当前在线: " + clients.length + "人)",
+      timestamp: new Date().toISOString(),
     });
-    
-    // 监听关闭
-    ws.on('close', () => {
-        console.log('客户端断开连接');
-        
-        // 从客户端列表移除
-        const index = clients.indexOf(ws);
-        if (index > -1) {
-            clients.splice(index, 1);
-        }
-        
-        // 广播用户离开消息
-        broadcastMessage({
-            type: 'system',
-            text: '用户离开聊天室 (当前在线: ' + clients.length + '人)',
-            timestamp: new Date().toISOString()
-        });
-    });
+  });
 });
 
 // 广播消息给所有客户端
 function broadcastMessage(message, exclude) {
-    clients.forEach(client => {
-        if (client !== exclude) {
-            client.sendJSON(message);
-        }
-    });
+  clients.forEach((client) => {
+    if (client !== exclude) {
+      client.sendJSON(message);
+    }
+  });
 }
 
 // API 端点 - 获取在线人数
-app.get('/api/stats', (req, res) => {
-    res.json({
-        online: clients.length,
-        timestamp: new Date().toISOString()
-    });
+app.get("/api/stats", (req, res) => {
+  res.json({
+    online: clients.length,
+    timestamp: new Date().toISOString(),
+  });
 });
 
 // 启动服务器
 const PORT = 3200;
 app.listen(PORT.toString(), () => {
-    console.log('');
-    console.log('🚀 WebSocket 聊天室已启动！');
-    console.log('📖 访问地址: http://localhost:' + PORT);
-    console.log('🔌 WebSocket: ws://localhost:' + PORT + '/chat');
-    console.log('');
-    console.log('📋 功能说明:');
-    console.log('   - 多用户实时聊天');
-    console.log('   - 自动广播消息');
-    console.log('   - 显示在线人数');
-    console.log('   - 系统通知');
-    console.log('');
-    console.log('按 Ctrl+C 停止服务器');
+  console.log("");
+  console.log("🚀 WebSocket 聊天室已启动！");
+  console.log("📖 访问地址: http://localhost:" + PORT);
+  console.log("🔌 WebSocket: ws://localhost:" + PORT + "/chat");
+  console.log("");
+  console.log("📋 功能说明:");
+  console.log("   - 多用户实时聊天");
+  console.log("   - 自动广播消息");
+  console.log("   - 显示在线人数");
+  console.log("   - 系统通知");
+  console.log("");
+  console.log("按 Ctrl+C 停止服务器");
 });

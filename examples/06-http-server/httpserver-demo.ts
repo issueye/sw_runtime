@@ -1,5 +1,5 @@
 // HTTP 服务器演示
-const server = require('httpserver');
+const server = require('http/server');
 
 async function httpServerDemo() {
     console.log('=== HTTP 服务器演示 ===');

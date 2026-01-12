@@ -1,63 +1,82 @@
 // HTTP 服务器文件服务示例
-console.log('=== HTTP 服务器文件服务示例 ===\n');
+console.log("=== HTTP 服务器文件服务示例 ===\n");
 
-const server = require('httpserver');
-const path = require('path');
+const server = require("http/server");
+const path = require("path");
 
 const app = server.createServer();
 
 // 中间件：请求日志
 app.use((req, res, next) => {
-    console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
-    next();
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
+  next();
 });
 
 // 1. 使用 sendFile 发送单个文件
-app.get('/file', (req, res) => {
-    const filePath = path.join(__dirname, 'examples', 'httpserver-demo.ts');
-    res.sendFile(filePath);
+app.get("/file", (req, res) => {
+  const filePath = path.join(__dirname, "examples", "httpserver-demo.ts");
+  res.sendFile(filePath);
 });
 
 // 2. 使用 download 下载文件
-app.get('/download', (req, res) => {
-    const filePath = path.join(__dirname, 'go.mod');
-    res.download(filePath);
+app.get("/download", (req, res) => {
+  const filePath = path.join(__dirname, "go.mod");
+  res.download(filePath);
 });
 
 // 3. 自定义下载文件名
-app.get('/download-custom', (req, res) => {
-    const filePath = path.join(__dirname, 'go.mod');
-    res.download(filePath, 'project-dependencies.mod');
+app.get("/download-custom", (req, res) => {
+  const filePath = path.join(__dirname, "go.mod");
+  res.download(filePath, "project-dependencies.mod");
 });
 
 // 4. 根据不同文件类型自动设置 MIME
-app.get('/html', (req, res) => {
-    const filePath = path.join(__dirname, 'examples', 'docs_server', 'index.html');
-    res.sendFile(filePath);
+app.get("/html", (req, res) => {
+  const filePath = path.join(
+    __dirname,
+    "examples",
+    "docs_server",
+    "index.html"
+  );
+  res.sendFile(filePath);
 });
 
-app.get('/css', (req, res) => {
-    const filePath = path.join(__dirname, 'examples', 'docs_server', 'assets', 'css', 'styles.css');
-    res.sendFile(filePath);
+app.get("/css", (req, res) => {
+  const filePath = path.join(
+    __dirname,
+    "examples",
+    "docs_server",
+    "assets",
+    "css",
+    "styles.css"
+  );
+  res.sendFile(filePath);
 });
 
-app.get('/js', (req, res) => {
-    const filePath = path.join(__dirname, 'examples', 'docs_server', 'assets', 'js', 'app.js');
-    res.sendFile(filePath);
+app.get("/js", (req, res) => {
+  const filePath = path.join(
+    __dirname,
+    "examples",
+    "docs_server",
+    "assets",
+    "js",
+    "app.js"
+  );
+  res.sendFile(filePath);
 });
 
 // 5. 文件不存在时的处理
-app.get('/nonexistent', (req, res) => {
-    res.sendFile('/path/to/nonexistent/file.txt');
-    // 会自动返回 404
+app.get("/nonexistent", (req, res) => {
+  res.sendFile("/path/to/nonexistent/file.txt");
+  // 会自动返回 404
 });
 
 // 6. 使用 static 提供静态文件目录
-app.static('./examples', '/static');
+app.static("./examples", "/static");
 
 // 首页
-app.get('/', (req, res) => {
-    res.html(`
+app.get("/", (req, res) => {
+  res.html(`
         <!DOCTYPE html>
         <html>
         <head>
@@ -163,18 +182,18 @@ app.get('/', (req, res) => {
 // 启动服务器
 const PORT = 3100;
 app.listen(PORT.toString(), () => {
-    console.log('');
-    console.log('🚀 HTTP 服务器启动成功！');
-    console.log('📖 访问地址: http://localhost:' + PORT);
-    console.log('');
-    console.log('📋 可用端点:');
-    console.log('   GET  /              - 功能首页');
-    console.log('   GET  /file          - sendFile 示例');
-    console.log('   GET  /download      - 下载文件');
-    console.log('   GET  /html          - HTML 文件');
-    console.log('   GET  /css           - CSS 文件');
-    console.log('   GET  /js            - JavaScript 文件');
-    console.log('   GET  /static/*      - 静态文件目录');
-    console.log('');
-    console.log('按 Ctrl+C 停止服务器');
+  console.log("");
+  console.log("🚀 HTTP 服务器启动成功！");
+  console.log("📖 访问地址: http://localhost:" + PORT);
+  console.log("");
+  console.log("📋 可用端点:");
+  console.log("   GET  /              - 功能首页");
+  console.log("   GET  /file          - sendFile 示例");
+  console.log("   GET  /download      - 下载文件");
+  console.log("   GET  /html          - HTML 文件");
+  console.log("   GET  /css           - CSS 文件");
+  console.log("   GET  /js            - JavaScript 文件");
+  console.log("   GET  /static/*      - 静态文件目录");
+  console.log("");
+  console.log("按 Ctrl+C 停止服务器");
 });

@@ -5,8 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"mime"
+	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -84,7 +85,7 @@ type HTTPServer struct {
 	server     *http.Server
 	mux        *http.ServeMux
 	vm         *goja.Runtime
-	routes     map[string]map[string]goja.Value // method -> path -> handler
+	routes     map[string][]routeEntry // method -> route entries
 	middleware []goja.Value
 	ws         map[string]goja.Value // WebSocket 路由
 	upgrader   websocket.Upgrader    // WebSocket 升级器
@@ -108,8 +109,63 @@ type HTTPServer struct {
 	stopOnce    sync.Once
 	initialized bool
 
-	// 路径注册追踪（防止重复注册）
-	registeredPaths map[string]bool
+	// 路径注册追踪（防止重复注册到 http.ServeMux）
+	registeredMuxPaths map[string]bool
+}
+
+// routeEntry 路由条目
+type routeEntry struct {
+	path    string
+	pattern *routePattern
+	handler goja.Value
+}
+
+// routePattern 预编译的路由模式
+type routePattern struct {
+	parts    []string
+	isStatic bool
+	params   []string
+}
+
+// parseRoutePattern 解析路由模式
+func parseRoutePattern(path string) *routePattern {
+	if !strings.Contains(path, ":") {
+		return &routePattern{isStatic: true}
+	}
+
+	parts := strings.Split(strings.Trim(path, "/"), "/")
+	p := &routePattern{parts: parts, isStatic: false}
+	for i, part := range parts {
+		if strings.HasPrefix(part, ":") {
+			p.params = append(p.params, part[1:])
+			p.parts[i] = ":"
+		}
+	}
+	return p
+}
+
+// match 匹配路径并提取参数
+func (p *routePattern) match(path string) (map[string]string, bool) {
+	if p.isStatic {
+		return nil, false
+	}
+
+	parts := strings.Split(strings.Trim(path, "/"), "/")
+	if len(parts) != len(p.parts) {
+		return nil, false
+	}
+
+	params := make(map[string]string)
+	paramIdx := 0
+	for i, part := range p.parts {
+		if part == ":" {
+			params[p.params[paramIdx]] = parts[i]
+			paramIdx++
+		} else if part != parts[i] {
+			return nil, false
+		}
+	}
+	return params, true
 }
 
 // NewHTTPServerModule 创建 HTTP 服务器模块
@@ -149,21 +205,27 @@ func (h *HTTPServerModule) GetModule() *goja.Object {
 // createServer 创建 HTTP 服务器
 func (h *HTTPServerModule) createServer(call goja.FunctionCall) goja.Value {
 	server := &HTTPServer{
-		mux:              http.NewServeMux(),
-		vm:               h.vm,
-		routes:           make(map[string]map[string]goja.Value),
-		middleware:       make([]goja.Value, 0),
-		wsAllowedOrigins: []string{},
-		wsAllowAll:       false, // 默认不允许所有来源
-		requestChan:      make(chan func(*goja.Runtime), 100),
-		stopChan:         make(chan struct{}),
-		registeredPaths:  make(map[string]bool), // 初始化路径追踪
+		mux:                http.NewServeMux(),
+		vm:                 h.vm,
+		routes:             make(map[string][]routeEntry),
+		middleware:         make([]goja.Value, 0),
+		wsAllowedOrigins:   []string{},
+		wsAllowAll:         false, // 默认不允许所有来源
+		requestChan:        make(chan func(*goja.Runtime), 100),
+		stopChan:           make(chan struct{}),
+		registeredMuxPaths: make(map[string]bool), // 初始化路径追踪
 		// 默认超时配置
 		readTimeout:       consts.DefaultReadTimeout,
 		writeTimeout:      consts.DefaultWriteTimeout,
 		idleTimeout:       consts.DefaultIdleTimeout,
 		readHeaderTimeout: 10 * time.Second,
 		maxHeaderBytes:    consts.MaxHeaderSize,
+	}
+
+	// 初始化路由列表
+	methods := []string{"GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS"}
+	for _, m := range methods {
+		server.routes[m] = make([]routeEntry, 0)
 	}
 
 	// 解析配置参数
@@ -198,15 +260,6 @@ func (h *HTTPServerModule) createServer(call goja.FunctionCall) goja.Value {
 			}
 		}
 	}
-
-	// 初始化路由映射
-	server.routes["GET"] = make(map[string]goja.Value)
-	server.routes["POST"] = make(map[string]goja.Value)
-	server.routes["PUT"] = make(map[string]goja.Value)
-	server.routes["DELETE"] = make(map[string]goja.Value)
-	server.routes["PATCH"] = make(map[string]goja.Value)
-	server.routes["HEAD"] = make(map[string]goja.Value)
-	server.routes["OPTIONS"] = make(map[string]goja.Value)
 
 	// 初始化 WebSocket（安全的 CORS 配置）
 	server.ws = make(map[string]goja.Value)
@@ -387,13 +440,35 @@ func (h *HTTPServerModule) createRouteHandler(server *HTTPServer, method string)
 		}
 
 		server.mutex.Lock()
-		server.routes[method][path] = handler
-		// 检查路径是否已注册到 mux
-		if !server.registeredPaths[path] {
-			server.registeredPaths[path] = true
+		server.routes[method] = append(server.routes[method], routeEntry{
+			path:    path,
+			pattern: parseRoutePattern(path),
+			handler: handler,
+		})
+
+		// 路由分发逻辑优化：注册到 http.ServeMux
+		muxPath := path
+		if strings.Contains(path, ":") {
+			idx := strings.Index(path, ":")
+			if idx > 0 {
+				muxPath = path[:idx]
+				if !strings.HasSuffix(muxPath, "/") {
+					lastSlash := strings.LastIndex(muxPath, "/")
+					if lastSlash != -1 {
+						muxPath = muxPath[:lastSlash+1]
+					} else {
+						muxPath = "/"
+					}
+				}
+			} else {
+				muxPath = "/"
+			}
+		}
+
+		if !server.registeredMuxPaths[muxPath] {
+			server.registeredMuxPaths[muxPath] = true
 			server.mutex.Unlock()
-			// 只注册一次到 mux，handler 内部会根据 method 分发
-			server.mux.HandleFunc(path, h.createHTTPHandler(server, "", path))
+			server.mux.HandleFunc(muxPath, h.createHTTPHandler(server, "", muxPath))
 		} else {
 			server.mutex.Unlock()
 		}
@@ -419,15 +494,36 @@ func (h *HTTPServerModule) createGenericRouteHandler(server *HTTPServer) func(go
 
 		server.mutex.Lock()
 		if server.routes[method] == nil {
-			server.routes[method] = make(map[string]goja.Value)
+			server.routes[method] = make([]routeEntry, 0)
 		}
-		server.routes[method][path] = handler
-		// 检查路径是否已注册到 mux
-		if !server.registeredPaths[path] {
-			server.registeredPaths[path] = true
+		server.routes[method] = append(server.routes[method], routeEntry{
+			path:    path,
+			pattern: parseRoutePattern(path),
+			handler: handler,
+		})
+
+		muxPath := path
+		if strings.Contains(path, ":") {
+			idx := strings.Index(path, ":")
+			if idx > 0 {
+				muxPath = path[:idx]
+				if !strings.HasSuffix(muxPath, "/") {
+					lastSlash := strings.LastIndex(muxPath, "/")
+					if lastSlash != -1 {
+						muxPath = muxPath[:lastSlash+1]
+					} else {
+						muxPath = "/"
+					}
+				}
+			} else {
+				muxPath = "/"
+			}
+		}
+
+		if !server.registeredMuxPaths[muxPath] {
+			server.registeredMuxPaths[muxPath] = true
 			server.mutex.Unlock()
-			// 只注册一次到 mux，handler 内部会根据 method 分发
-			server.mux.HandleFunc(path, h.createHTTPHandler(server, "", path))
+			server.mux.HandleFunc(muxPath, h.createHTTPHandler(server, "", muxPath))
 		} else {
 			server.mutex.Unlock()
 		}
@@ -725,13 +821,35 @@ func (h *HTTPServerModule) createHTTPHandler(server *HTTPServer, method, path st
 		}
 
 		server.mutex.RLock()
-		handler, exists := server.routes[actualMethod][path]
+		routes := server.routes[actualMethod]
 		middleware := server.middleware
 		server.mutex.RUnlock()
 
-		if !exists {
-			// 方法不支持，返回 405 Method Not Allowed
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		var handler goja.Value
+		var params map[string]string
+		found := false
+
+		// 匹配路由
+		for _, entry := range routes {
+			if entry.pattern.isStatic {
+				if entry.path == r.URL.Path {
+					handler = entry.handler
+					found = true
+					break
+				}
+			} else {
+				if p, match := entry.pattern.match(r.URL.Path); match {
+					handler = entry.handler
+					params = p
+					found = true
+					break
+				}
+			}
+		}
+
+		if !found {
+			// 如果没有匹配到路径参数路由，尝试精确匹配
+			http.NotFound(w, r)
 			return
 		}
 
@@ -750,14 +868,23 @@ func (h *HTTPServerModule) createHTTPHandler(server *HTTPServer, method, path st
 			defer close(done)
 			defer func() {
 				if r := recover(); r != nil {
+					fmt.Printf("Handler panic at %s: %v\n", path, r)
 					if !rw.written {
-						http.Error(w, fmt.Sprintf("Handler panic: %v", r), http.StatusInternalServerError)
+						// 可以根据环境变量判断是否显示详细信息，这里先默认显示简略信息
+						http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 					}
 				}
 			}()
 
 			// 在 VM goroutine 中创建请求和响应对象
 			reqObj := h.createRequestObject(r)
+			if params != nil {
+				// 将路径参数注入到 req.params
+				pObj := reqObj.ToObject(vm).Get("params").ToObject(vm)
+				for k, v := range params {
+					pObj.Set(k, v)
+				}
+			}
 			resObj := h.createResponseObjectWithWrapper(rw, r)
 
 			// 执行中间件链
@@ -812,17 +939,40 @@ type responseWriter struct {
 	written    bool
 }
 
-// createRequestObject 创建请求对象
+// createRequestObject 创建请求对象 (增强版)
 func (h *HTTPServerModule) createRequestObject(r *http.Request) goja.Value {
 	obj := h.vm.NewObject()
 
-	// 基本信息
+	// 1. 基本信息
 	obj.Set("method", r.Method)
 	obj.Set("url", r.URL.String())
 	obj.Set("path", r.URL.Path)
 	obj.Set("query", r.URL.RawQuery)
+	obj.Set("originalUrl", r.URL.RequestURI())
 
-	// 请求头
+	// 2. 协议与安全
+	protocol := "http"
+	if r.TLS != nil {
+		protocol = "https"
+	} else if proto := r.Header.Get("X-Forwarded-Proto"); proto != "" {
+		protocol = proto
+	}
+	obj.Set("protocol", protocol)
+	obj.Set("secure", protocol == "https")
+
+	// 3. 主机名 (不含端口)
+	host := r.Host
+	if strings.Contains(host, ":") {
+		h, _, _ := net.SplitHostPort(host)
+		host = h
+	}
+	obj.Set("hostname", host)
+	obj.Set("host", r.Host)
+
+	// 4. XHR 判断
+	obj.Set("xhr", strings.ToLower(r.Header.Get("X-Requested-With")) == "xmlhttprequest")
+
+	// 5. 请求头
 	headers := h.vm.NewObject()
 	for key, values := range r.Header {
 		if len(values) == 1 {
@@ -833,7 +983,24 @@ func (h *HTTPServerModule) createRequestObject(r *http.Request) goja.Value {
 	}
 	obj.Set("headers", headers)
 
-	// 查询参数
+	// 获取头部方法 (类似 Express 的 req.get)
+	obj.Set("get", func(call goja.FunctionCall) goja.Value {
+		if len(call.Arguments) > 0 {
+			name := call.Arguments[0].String()
+			return h.vm.ToValue(r.Header.Get(name))
+		}
+		return goja.Undefined()
+	})
+
+	// 6. Cookies 解析
+	cookiesObj := h.vm.NewObject()
+	cookies := r.Cookies()
+	for _, cookie := range cookies {
+		cookiesObj.Set(cookie.Name, cookie.Value)
+	}
+	obj.Set("cookies", cookiesObj)
+
+	// 7. 查询参数
 	params := h.vm.NewObject()
 	for key, values := range r.URL.Query() {
 		if len(values) == 1 {
@@ -844,23 +1011,51 @@ func (h *HTTPServerModule) createRequestObject(r *http.Request) goja.Value {
 	}
 	obj.Set("params", params)
 
-	// 读取请求体
+	// 8. Body 解析增强
 	if r.Body != nil {
+		// 注意：io.ReadAll 会消耗 Body，如果后续需要重新读取，这里需要处理
+		// 目前方案是解析后存入对象。对于大 Body，可能需要流式支持
 		body, err := io.ReadAll(r.Body)
 		if err == nil {
-			obj.Set("body", string(body))
+			bodyStr := string(body)
+			obj.Set("body", bodyStr)
 
-			// 尝试解析 JSON
-			if strings.Contains(r.Header.Get("Content-Type"), "application/json") {
+			contentType := r.Header.Get("Content-Type")
+
+			// JSON 解析
+			if strings.Contains(contentType, "application/json") {
 				var jsonData interface{}
 				if json.Unmarshal(body, &jsonData) == nil {
 					obj.Set("json", h.vm.ToValue(jsonData))
+				}
+			} else if strings.Contains(contentType, "application/x-www-form-urlencoded") {
+				// Form 表单解析
+				if values, err := url.ParseQuery(bodyStr); err == nil {
+					formObj := h.vm.NewObject()
+					for k, v := range values {
+						if len(v) == 1 {
+							formObj.Set(k, v[0])
+						} else {
+							formObj.Set(k, v)
+						}
+					}
+					obj.Set("form", formObj)
 				}
 			}
 		}
 	}
 
-	// 客户端信息
+	// 9. 类型检查方法 (类似 Express 的 req.is)
+	obj.Set("is", func(call goja.FunctionCall) goja.Value {
+		if len(call.Arguments) > 0 {
+			target := call.Arguments[0].String()
+			contentType := r.Header.Get("Content-Type")
+			return h.vm.ToValue(strings.Contains(contentType, target))
+		}
+		return h.vm.ToValue(false)
+	})
+
+	// 10. 客户端信息
 	obj.Set("ip", r.RemoteAddr)
 	obj.Set("userAgent", r.UserAgent())
 
@@ -942,7 +1137,7 @@ func (h *HTTPServerModule) createResponseObjectWithWrapper(rw *responseWriter, r
 	obj.Set("sendFile", func(call goja.FunctionCall) goja.Value {
 		if len(call.Arguments) > 0 {
 			filePath := call.Arguments[0].String()
-			h.sendFileResponse(w, rw, filePath)
+			h.sendFileResponse(w, rw, r, filePath)
 		}
 		return obj
 	})
@@ -959,7 +1154,7 @@ func (h *HTTPServerModule) createResponseObjectWithWrapper(rw *responseWriter, r
 			}
 
 			w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, filename))
-			h.sendFileResponse(w, rw, filePath)
+			h.sendFileResponse(w, rw, r, filePath)
 		}
 		return obj
 	})
@@ -983,22 +1178,21 @@ func (h *HTTPServerModule) createResponseObjectWithWrapper(rw *responseWriter, r
 	return obj
 }
 
-// sendFileResponse 发送文件响应
-func (h *HTTPServerModule) sendFileResponse(w http.ResponseWriter, rw *responseWriter, filePath string) {
+// sendFileResponse 发送文件响应 (优化为流式传输)
+func (h *HTTPServerModule) sendFileResponse(w http.ResponseWriter, rw *responseWriter, r *http.Request, filePath string) {
 	// 路径验证 - 防止路径遍历攻击
 	cleanPath := filepath.Clean(filePath)
-	absPath, err := filepath.Abs(cleanPath)
-	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte("Invalid file path"))
+
+	// 检查是否包含路径遍历模式
+	if strings.Contains(cleanPath, "..") {
+		http.Error(w, "Access denied: path traversal not allowed", http.StatusForbidden)
 		rw.written = true
 		return
 	}
 
-	// 检查是否包含路径遍历模式
-	if strings.Contains(cleanPath, "..") {
-		w.WriteHeader(http.StatusForbidden)
-		w.Write([]byte("Access denied: path traversal not allowed"))
+	absPath, err := filepath.Abs(cleanPath)
+	if err != nil {
+		http.Error(w, "Invalid file path", http.StatusBadRequest)
 		rw.written = true
 		return
 	}
@@ -1007,11 +1201,9 @@ func (h *HTTPServerModule) sendFileResponse(w http.ResponseWriter, rw *responseW
 	fileInfo, err := os.Stat(absPath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			w.WriteHeader(http.StatusNotFound)
-			w.Write([]byte("File not found"))
+			http.Error(w, "File not found", http.StatusNotFound)
 		} else {
-			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte("Error accessing file"))
+			http.Error(w, "Error accessing file", http.StatusInternalServerError)
 		}
 		rw.written = true
 		return
@@ -1019,51 +1211,18 @@ func (h *HTTPServerModule) sendFileResponse(w http.ResponseWriter, rw *responseW
 
 	// 检查是否为目录
 	if fileInfo.IsDir() {
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte("Cannot send directory"))
+		http.Error(w, "Cannot send directory", http.StatusBadRequest)
 		rw.written = true
 		return
 	}
 
-	// 读取文件内容
-	content, err := os.ReadFile(absPath)
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte("Error reading file"))
-		rw.written = true
-		return
+	// 设置响应状态码并使用 Go 标准库的 ServeFile
+	// ServeFile 会自动处理 Content-Type, Range 请求, Last-Modified 等
+	if rw.statusCode != 0 && rw.statusCode != 200 {
+		w.WriteHeader(rw.statusCode)
 	}
-
-	// 检测 MIME 类型
-	contentType := h.detectContentType(absPath, content)
-	w.Header().Set("Content-Type", contentType)
-
-	// 设置缓存控制头
-	w.Header().Set("Last-Modified", fileInfo.ModTime().UTC().Format(http.TimeFormat))
-	w.Header().Set("Cache-Control", "public, max-age=3600")
-
-	// 发送文件内容
-	w.WriteHeader(rw.statusCode)
-	w.Write(content)
+	http.ServeFile(w, r, absPath)
 	rw.written = true
-}
-
-// detectContentType 检测文件的 MIME 类型
-func (h *HTTPServerModule) detectContentType(filePath string, content []byte) string {
-	// 首先根据文件扩展名判断
-	ext := filepath.Ext(filePath)
-	if ext != "" {
-		if mimeType := mime.TypeByExtension(ext); mimeType != "" {
-			return mimeType
-		}
-	}
-
-	// 如果无法从扩展名判断,使用内容检测
-	if len(content) > 0 {
-		return http.DetectContentType(content)
-	}
-
-	return "application/octet-stream"
 }
 
 // createWebSocketHandler 创建 WebSocket 路由处理器

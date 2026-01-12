@@ -1,5 +1,5 @@
 // HTTP 服务器超时配置演示
-const server = require('httpserver');
+const server = require('http/server');
 
 async function timeoutConfigDemo() {
     console.log('=== HTTP 服务器超时配置演示 ===\n');

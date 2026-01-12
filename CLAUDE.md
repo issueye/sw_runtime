@@ -73,8 +73,8 @@ main.go (entry point)
         │   ├── fs.go        - File system operations
         │   ├── crypto.go    - Hashing, encryption, encoding
         │   ├── compression.go - Gzip/zlib compression
-        │   ├── http.go      - HTTP client
-        │   ├── httpserver.go - HTTP/HTTPS server with middleware
+        │   ├── http.go      - HTTP client (http/client)
+        │   ├── httpserver.go - HTTP/HTTPS server (http/server)
         │   ├── websocket.go - WebSocket client/server
         │   ├── net.go       - TCP/UDP networking
         │   ├── proxy.go     - HTTP/TCP proxy
@@ -91,6 +91,7 @@ main.go (entry point)
 The module system is hybrid, supporting both CommonJS (`require`) and ES6 dynamic `import()`:
 
 1. **Module Resolution** (`internal/modules/system.go`):
+
    - Builtin modules are checked first
    - Relative paths (`./`, `../`) resolved from current file directory
    - Absolute paths used directly
@@ -98,9 +99,10 @@ The module system is hybrid, supporting both CommonJS (`require`) and ES6 dynami
    - Extensions tried: `.js`, `.ts`, `.json`, then `index.js`
 
 2. **Module Loading**:
+
    - TypeScript files are transpiled via esbuild before execution
    - JSON files are parsed directly
-   - Modules are cached in `System.cache` (map[string]*Module)
+   - Modules are cached in `System.cache` (map[string]\*Module)
    - Thread-safe with `sync.RWMutex`
 
 3. **Builtin Modules** (`internal/builtins/manager.go`):
@@ -111,6 +113,7 @@ The module system is hybrid, supporting both CommonJS (`require`) and ES6 dynami
 ### Event Loop
 
 The `SimpleEventLoop` in `internal/runtime/eventloop.go` handles async operations:
+
 - `setTimeout`/`clearTimeout`
 - `setInterval`/`clearInterval`
 - Promise resolution
@@ -172,6 +175,7 @@ func (m *MyModule) GetModule() *goja.Object {
 ```
 
 3. Register in `internal/builtins/manager.go`:
+
 ```go
 func (m *Manager) registerBuiltinModules() {
     // ... existing modules
@@ -182,10 +186,14 @@ func (m *Manager) registerBuiltinModules() {
 ## Module Aliases
 
 The runtime provides Node.js-style compatibility aliases:
+
+- `http/client` (Native HTTP Client)
+- `http/server` (Native HTTP Server)
 - `zlib` → `compression`
-- `server` → `httpserver`
 - `ws` → `websocket`
 - `child_process` → `exec`
+- `os` → `os` (Native)
+- `util` → `util` (Native)
 
 ## Testing
 
@@ -205,6 +213,7 @@ go test ./test -bench=. -benchmem
 ## Key Patterns
 
 ### Error Handling in Go→JS Bridge
+
 ```go
 // Use vm.NewGoError() to convert Go errors to JavaScript
 if err != nil {
@@ -213,6 +222,7 @@ if err != nil {
 ```
 
 ### Creating Promises from Async Go Operations
+
 ```go
 promise, resolve, reject := r.vm.NewPromise()
 go func() {
@@ -227,6 +237,7 @@ return r.vm.ToValue(promise)
 ```
 
 ### Thread-Module Loading
+
 The module cache is protected by `sync.RWMutex`. Always use locking when accessing `cache` map.
 
 ## Hot Reloading
@@ -271,6 +282,7 @@ See `example_hotreload.js` for a complete example with HTTP server.
 ## Dependencies
 
 Key Go dependencies:
+
 - `github.com/dop251/goja` - JavaScript engine (ECMAScript 5.1+)
 - `github.com/evanw/esbuild` - TypeScript compiler
 - `github.com/go-redis/redis/v8` - Redis client

@@ -1,6 +1,6 @@
 // http-demo.ts - HTTP 客户端功能演示
 
-const http = require('http');
+const http = require('http/client');
 
 console.log('=== HTTP 客户端功能演示 ===');
 
