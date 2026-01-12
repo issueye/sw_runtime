@@ -1,6 +1,8 @@
 package builtins
 
 import (
+	"time"
+
 	"github.com/dop251/goja"
 )
 
@@ -11,17 +13,21 @@ type BuiltinModule interface {
 
 // Manager 内置模块管理器
 type Manager struct {
-	vm       *goja.Runtime
-	modules  map[string]BuiltinModule
-	basePath string
+	vm           *goja.Runtime
+	modules      map[string]BuiltinModule
+	basePath     string
+	argv         []string
+	startTime    time.Time
+	nextTickFunc func(goja.FunctionCall) goja.Value
 }
 
 // NewManager 创建内置模块管理器
 func NewManager(vm *goja.Runtime, basePath string) *Manager {
 	m := &Manager{
-		vm:       vm,
-		modules:  make(map[string]BuiltinModule),
-		basePath: basePath,
+		vm:        vm,
+		modules:   make(map[string]BuiltinModule),
+		basePath:  basePath,
+		startTime: time.Now(),
 	}
 
 	// 注册内置模块
@@ -41,7 +47,8 @@ func (m *Manager) registerBuiltinModules() {
 	m.modules["http/server"] = NewHTTPServerModule(m.vm)
 	m.modules["redis"] = NewRedisModule(m.vm)
 	m.modules["sqlite"] = NewSQLiteModule(m.vm)
-	m.modules["exec"] = NewExecModule(m.vm)
+	m.modules["process"] = NewProcessModule(m.vm, m)
+	m.modules["process/exec"] = NewExecModule(m.vm)
 	m.modules["child_process"] = NewExecModule(m.vm) // Node.js 风格别名
 	m.modules["websocket"] = NewWebSocketModule(m.vm)
 	m.modules["ws"] = NewWebSocketModule(m.vm) // 简短别名
@@ -81,4 +88,19 @@ func (m *Manager) RegisterModule(name string, module BuiltinModule) {
 // Close 关闭所有内置模块并清理资源
 func (m *Manager) Close() {
 	closeAllHTTPServers()
+}
+
+// SetArgv 设置命令行参数
+func (m *Manager) SetArgv(argv []string) {
+	m.argv = argv
+}
+
+// SetStartTime 设置起始时间
+func (m *Manager) SetStartTime(t time.Time) {
+	m.startTime = t
+}
+
+// SetNextTick 设置 NextTick 函数
+func (m *Manager) SetNextTick(fn func(goja.FunctionCall) goja.Value) {
+	m.nextTickFunc = fn
 }

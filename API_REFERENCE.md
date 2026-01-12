@@ -17,7 +17,9 @@
 - [redis - Redis 客户端模块](#redis---redis客户端模块)
 - [sqlite - SQLite 数据库模块](#sqlite---sqlite数据库模块)
 - [time - 时间处理模块](#time---时间处理模块)
-- [exec/child_process - 进程执行模块](#execchild_process---进程执行模块)
+- [time - 时间处理模块](#time---时间处理模块)
+- [process - 进程模块](#process---进程模块)
+- [process/exec - 进程执行模块](#processexec---进程执行模块)
 
 ---
 
@@ -1690,7 +1692,61 @@ time.UNIT.HOUR; // 小时
 
 ---
 
-## exec/child_process - 进程执行模块
+## process - 进程模块
+
+`process` 是一个全局对象，提供有关当前进程的信息和控制。
+
+### 属性
+
+- `pid` (number): 当前进程 ID
+- `platform` (string): 操作系统平台 (如 'linux', 'darwin', 'windows')
+- `arch` (string): CPU 架构 (如 'amd64', 'arm64')
+- `versions` (object): 版本信息对象
+  - `node`: 兼容性版本
+  - `sw_runtime`: 运行时版本
+  - `go`: Go 语言版本
+- `env` (object): 环境变量对象
+- `argv` (string[]): 命令行参数数组
+- `stdout` (object): 标准输出流
+- `stderr` (object): 标准错误流
+
+### 方法
+
+#### cwd(): string
+
+获取当前工作目录。
+
+#### chdir(path: string): void
+
+改变当前工作目录。
+
+#### exit(code?: number): void
+
+退出进程。`code` 默认为 0。
+
+#### uptime(): number
+
+获取进程运行时间（秒）。
+
+#### memoryUsage(): object
+
+获取内存使用情况。返回对象包含 `rss`, `heapTotal`, `heapUsed` 等属性。
+
+#### nextTick(callback: function): void
+
+将回调函数加入到微任务队列，在当前操作完成后立即执行。
+
+#### hrtime(time?: [number, number]): [number, number]
+
+获取高精度时间。如果不传参数，返回当前时间 `[seconds, nanoseconds]`。如果传入上一次的时间，返回时间差。
+
+#### kill(pid: number, signal?: string): boolean
+
+发送信号给进程。`signal` 默认为 'SIGINT'。
+
+---
+
+## process/exec - 进程执行模块
 
 ### execSync(command: string, args?: string[], options?: ExecOptions): object
 

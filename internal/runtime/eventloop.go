@@ -588,6 +588,32 @@ func (el *EventLoop) SetImmediate(call goja.FunctionCall) goja.Value {
 	return el.vm.ToValue(id)
 }
 
+// NextTick 实现 process.nextTick
+func (el *EventLoop) NextTick(call goja.FunctionCall) goja.Value {
+	if len(call.Arguments) < 1 {
+		return goja.Undefined()
+	}
+
+	fn, ok := goja.AssertFunction(call.Arguments[0])
+	if !ok {
+		return goja.Undefined()
+	}
+
+	// 提交到队列
+	el.submitTask(func() {
+		el.vmMu.Lock()
+		defer el.vmMu.Unlock()
+		defer func() {
+			if r := recover(); r != nil {
+				// 忽略回调中的 panic
+			}
+		}()
+		fn(goja.Undefined())
+	})
+
+	return goja.Undefined()
+}
+
 // GetPendingTimerCount 获取待处理的定时器数量（用于调试）
 func (el *EventLoop) GetPendingTimerCount() int {
 	el.timerMu.Lock()

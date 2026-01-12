@@ -7,6 +7,7 @@ import (
 	"strings"
 	"sw_runtime/internal/builtins"
 	"sync"
+	"time"
 
 	"github.com/dop251/goja"
 )
@@ -359,4 +360,27 @@ func (ms *System) GetBuiltinModules() []string {
 func (ms *System) Close() {
 	ms.builtinManager.Close()
 	ms.ClearCache()
+}
+
+// SetArgv 设置命令行参数
+func (ms *System) SetArgv(argv []string) {
+	ms.builtinManager.SetArgv(argv)
+}
+
+// SetStartTime 设置起始时间
+func (ms *System) SetStartTime(t time.Time) {
+	ms.builtinManager.SetStartTime(t)
+}
+
+// SetNextTick 设置 NextTick 函数
+func (ms *System) SetNextTick(fn func(goja.FunctionCall) goja.Value) {
+	ms.builtinManager.SetNextTick(fn)
+}
+
+// GetBuiltinModule 获取内置模块对象
+func (ms *System) GetBuiltinModule(name string) *goja.Object {
+	if module, exists := ms.builtinManager.GetModule(name); exists {
+		return module.GetModule()
+	}
+	return nil
 }

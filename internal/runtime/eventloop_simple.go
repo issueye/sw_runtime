@@ -360,3 +360,8 @@ func (el *SimpleEventLoop) ClearInterval(call goja.FunctionCall) goja.Value {
 
 	return goja.Undefined()
 }
+
+// NextTick 实现 process.nextTick
+func (el *SimpleEventLoop) NextTick(call goja.FunctionCall) goja.Value {
+	return el.SetTimeout(call) // 在简单实现中，我们可以退化为 setTimeout(0)
+}

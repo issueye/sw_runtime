@@ -38,7 +38,7 @@ var runCmd = &cobra.Command{
   sw_runtime run --decrypt-key=<key> encrypted.bundle.js
   sw_runtime run --decrypt-key-file=bundle.key encrypted.bundle.js
   sw_runtime run --watch app.ts`,
-	Args: cobra.ExactArgs(1),
+	Args: cobra.MinimumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		scriptPath := args[0]
 
@@ -59,7 +59,7 @@ var runCmd = &cobra.Command{
 		}
 
 		// 执行脚本
-		err := runScript(scriptPath, workingDir, clearCache, decryptKey, decryptKeyFile, watchMode, verbose, quiet)
+		err := runScript(scriptPath, args[1:], workingDir, clearCache, decryptKey, decryptKeyFile, watchMode, verbose, quiet)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "❌ 运行失败: %v\n", err)
 			os.Exit(1)
@@ -79,7 +79,7 @@ func init() {
 }
 
 // runScript 执行脚本并支持热加载
-func runScript(scriptPath, workingDir string, clearCache bool, decryptKey, decryptKeyFile string,
+func runScript(scriptPath string, scriptArgs []string, workingDir string, clearCache bool, decryptKey, decryptKeyFile string,
 	watchMode, verbose, quiet bool) error {
 
 	// 如果有加密文件，暂时不支持监控模式
@@ -124,12 +124,12 @@ func runScript(scriptPath, workingDir string, clearCache bool, decryptKey, decry
 		return manager.Start()
 	} else {
 		// 传统模式：单次运行
-		return runScriptOnce(actualScriptPath, workingDir, clearCache, verbose, quiet)
+		return runScriptOnce(actualScriptPath, scriptArgs, workingDir, clearCache, verbose, quiet)
 	}
 }
 
 // runScriptOnce 单次运行脚本
-func runScriptOnce(scriptPath, workingDir string, clearCache, verbose, quiet bool) error {
+func runScriptOnce(scriptPath string, scriptArgs []string, workingDir string, clearCache, verbose, quiet bool) error {
 	// 创建运行器
 	var runner *runtime.Runner
 	if workingDir != "" {
@@ -142,6 +142,10 @@ func runScriptOnce(scriptPath, workingDir string, clearCache, verbose, quiet boo
 		runner = runtime.NewOrPanic()
 	}
 	defer runner.Close()
+
+	// 设置脚本参数
+	argv := append([]string{"sw_runtime", scriptPath}, scriptArgs...)
+	runner.SetArgv(argv)
 
 	// 如果需要清除缓存
 	if clearCache {

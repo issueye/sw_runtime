@@ -80,7 +80,12 @@ main.go (entry point)
         │   ├── proxy.go     - HTTP/TCP proxy
         │   ├── redis.go     - Redis client
         │   ├── sqlite.go    - SQLite database
-        │   └── time.go      - Time utilities
+        │   ├── sqlite.go    - SQLite database
+        │   ├── time.go      - Time utilities
+        │   ├── os.go        - Operating System info
+        │   ├── util.go      - Utility functions
+        │   ├── process.go   - Process info and control
+        │   └── exec.go      - Command execution (process/exec)
         │
         ├── pool/      - Memory pool monitoring
         └── bundler/   - Script bundler for distribution
@@ -191,9 +196,10 @@ The runtime provides Node.js-style compatibility aliases:
 - `http/server` (Native HTTP Server)
 - `zlib` → `compression`
 - `ws` → `websocket`
-- `child_process` → `exec`
+- `child_process` → `process/exec`
 - `os` → `os` (Native)
 - `util` → `util` (Native)
+- `process` → `process` (Native)
 
 ## Testing
 

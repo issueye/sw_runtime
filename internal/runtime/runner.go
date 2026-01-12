@@ -9,6 +9,8 @@ import (
 	"sw_runtime/internal/modules"
 	"sw_runtime/internal/pool"
 
+	"time"
+
 	"github.com/dop251/goja"
 )
 
@@ -37,6 +39,7 @@ type eventLoopInterface interface {
 	ClearTimeout(call goja.FunctionCall) goja.Value
 	SetInterval(call goja.FunctionCall) goja.Value
 	ClearInterval(call goja.FunctionCall) goja.Value
+	NextTick(call goja.FunctionCall) goja.Value
 }
 
 // Runner JavaScript/TypeScript 运行器
@@ -44,6 +47,8 @@ type Runner struct {
 	vm      *goja.Runtime
 	loop    eventLoopInterface
 	modules *modules.System
+	argv    []string
+	start   time.Time
 }
 
 // RunnerPool Runner 对象池，用于复用 Runner 实例以减少频繁创建开销。
@@ -258,6 +263,14 @@ func (r *Runner) setupBuiltinsWithDir(workingDir string) {
 	r.vm.Set("__dirname", workingDir)
 	r.vm.Set("__filename", "")
 
+	// 设置 process 对象
+	process := r.modules.GetBuiltinModule("process")
+	if process != nil {
+		r.vm.Set("process", process)
+		// 设置 nextTick 函数到管理器，由 process 模块调用
+		r.modules.SetNextTick(r.loop.NextTick)
+	}
+
 	// 启用 Promise
 	r.vm.SetPromiseRejectionTracker(func(p *goja.Promise, op goja.PromiseRejectionOperation) {
 		if op == goja.PromiseRejectionReject {
@@ -376,4 +389,26 @@ func (r *Runner) Close() {
 // GetMemoryStats 获取内存统计信息
 func (r *Runner) GetMemoryStats() pool.MemoryStats {
 	return pool.GlobalMemoryMonitor.GetStats()
+}
+
+// SetArgv 设置命令行参数
+func (r *Runner) SetArgv(argv []string) {
+	r.argv = argv
+	r.modules.SetArgv(argv)
+}
+
+// GetArgv 获取命令行参数
+func (r *Runner) GetArgv() []string {
+	return r.argv
+}
+
+// SetStartTime 设置起始时间
+func (r *Runner) SetStartTime(t time.Time) {
+	r.start = t
+	r.modules.SetStartTime(t)
+}
+
+// GetStartTime 获取起始时间
+func (r *Runner) GetStartTime() time.Time {
+	return r.start
 }
