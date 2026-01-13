@@ -454,7 +454,7 @@ func (h *HTTPServerModule) createRouteHandler(server *HTTPServer, method string)
 				muxPath = path[:idx]
 				if !strings.HasSuffix(muxPath, "/") {
 					lastSlash := strings.LastIndex(muxPath, "/")
-					if lastSlash != -1 {
+					if lastSlash >= 0 {
 						muxPath = muxPath[:lastSlash+1]
 					} else {
 						muxPath = "/"
@@ -463,6 +463,10 @@ func (h *HTTPServerModule) createRouteHandler(server *HTTPServer, method string)
 			} else {
 				muxPath = "/"
 			}
+		}
+		// 确保 muxPath 不为空
+		if len(muxPath) == 0 {
+			muxPath = "/"
 		}
 
 		if !server.registeredMuxPaths[muxPath] {
@@ -509,7 +513,7 @@ func (h *HTTPServerModule) createGenericRouteHandler(server *HTTPServer) func(go
 				muxPath = path[:idx]
 				if !strings.HasSuffix(muxPath, "/") {
 					lastSlash := strings.LastIndex(muxPath, "/")
-					if lastSlash != -1 {
+					if lastSlash >= 0 {
 						muxPath = muxPath[:lastSlash+1]
 					} else {
 						muxPath = "/"
@@ -518,6 +522,10 @@ func (h *HTTPServerModule) createGenericRouteHandler(server *HTTPServer) func(go
 			} else {
 				muxPath = "/"
 			}
+		}
+		// 确保 muxPath 不为空
+		if len(muxPath) == 0 {
+			muxPath = "/"
 		}
 
 		if !server.registeredMuxPaths[muxPath] {
@@ -623,7 +631,8 @@ func (h *HTTPServerModule) createListenHandler(server *HTTPServer) func(goja.Fun
 								fmt.Printf("Callback panic: %v\n", r)
 							}
 						}()
-						_, err := fn(goja.Undefined())
+						// 使用 vm.GlobalObject() 作为 this 值，而不是 goja.Undefined()
+						_, err := fn(vm.GlobalObject())
 						if err != nil {
 							fmt.Printf("Callback error: %v\n", err)
 						}
@@ -725,7 +734,8 @@ func (h *HTTPServerModule) createListenTLSHandler(server *HTTPServer) func(goja.
 								fmt.Printf("Callback panic: %v\n", r)
 							}
 						}()
-						_, err := fn(goja.Undefined())
+						// 使用 vm.GlobalObject() 作为 this 值，而不是 goja.Undefined()
+						_, err := fn(vm.GlobalObject())
 						if err != nil {
 							fmt.Printf("Callback error: %v\n", err)
 						}

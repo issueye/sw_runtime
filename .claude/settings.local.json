@@ -10,7 +10,14 @@
       "Bash(go mod tidy)",
       "Bash(go list sw_runtime/internal/loop)",
       "mcp__sequential-thinking__sequentialthinking",
-      "Bash(go get:*)"
+      "Bash(go get:*)",
+      "Bash(go run:*)",
+      "Bash(powershell -Command \"cd ''D:\\\\dev\\\\codes\\\\golang\\\\src\\\\issueye\\\\sw_runtime''; go run . run ''examples/06-http-server/httpserver-demo.ts''\")",
+      "mcp__context7__query-docs",
+      "WebSearch",
+      "WebFetch(domain:day.js.org)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:www.npmjs.com)"
     ]
   }
 }

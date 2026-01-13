@@ -31,3 +31,4 @@ examples/docs_server/pitaya/*
 *.txt
 *.db
 *.lock
+*-cwd
