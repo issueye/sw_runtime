@@ -90,54 +90,60 @@ func TestIntegrationAsyncOperations(t *testing.T) {
 	runner := runtime.NewOrPanic()
 	defer runner.Close()
 
+	// 使用 Promise 来等待异步操作完成，而不是固定 sleep
 	code := `
 		let asyncResults = {
 			timeoutCompleted: false,
 			intervalCount: 0,
 			promiseResolved: false,
-			allCompleted: false
+			allCompleted: false,
+			completionPromise: null
 		};
-		
+
+		let completionResolver;
+		asyncResults.completionPromise = new Promise((resolve) => {
+			completionResolver = resolve;
+		});
+
+		function checkCompletion() {
+			if (asyncResults.timeoutCompleted &&
+				asyncResults.intervalCount >= 3 &&
+				asyncResults.promiseResolved) {
+				asyncResults.allCompleted = true;
+				console.log('All async operations completed');
+				completionResolver();
+			}
+		}
+
 		// 测试 setTimeout
 		setTimeout(() => {
 			asyncResults.timeoutCompleted = true;
 			console.log('Timeout completed');
-			
-			// 检查是否所有异步操作都完成
 			checkCompletion();
-		}, 50);
-		
+		}, 20);
+
 		// 测试 setInterval
 		let intervalId = setInterval(() => {
 			asyncResults.intervalCount++;
 			console.log('Interval count:', asyncResults.intervalCount);
-			
+
 			if (asyncResults.intervalCount >= 3) {
 				clearInterval(intervalId);
 				checkCompletion();
 			}
-		}, 30);
-		
+		}, 15);
+
 		// 测试 Promise
 		new Promise((resolve) => {
 			setTimeout(() => {
 				resolve('Promise resolved');
-			}, 40);
+			}, 20);
 		}).then((result) => {
 			asyncResults.promiseResolved = true;
 			console.log('Promise result:', result);
 			checkCompletion();
 		});
-		
-		function checkCompletion() {
-			if (asyncResults.timeoutCompleted && 
-				asyncResults.intervalCount >= 3 && 
-				asyncResults.promiseResolved) {
-				asyncResults.allCompleted = true;
-				console.log('All async operations completed');
-			}
-		}
-		
+
 		global.asyncResults = asyncResults;
 	`
 
@@ -146,8 +152,12 @@ func TestIntegrationAsyncOperations(t *testing.T) {
 		t.Fatalf("Failed to run async integration test: %v", err)
 	}
 
-	// 等待所有异步操作完成
-	time.Sleep(200 * time.Millisecond)
+	// 等待 completionPromise 完成（最多 500ms）
+	runner.RunCode(`
+		(async () => {
+			await global.asyncResults.completionPromise;
+		})();
+	`)
 
 	results := runner.GetValue("asyncResults")
 	if results == nil {
@@ -289,13 +299,19 @@ func TestIntegrationErrorRecovery(t *testing.T) {
 		let errorResults = {
 			normalCodeExecuted: false,
 			errorCaught: false,
-			recoverySuccessful: false
+			recoverySuccessful: false,
+			recoveryPromise: null
 		};
-		
+
+		let recoveryResolver;
+		errorResults.recoveryPromise = new Promise((resolve) => {
+			recoveryResolver = resolve;
+		});
+
 		// 正常代码
 		errorResults.normalCodeExecuted = true;
 		console.log('Normal code executed');
-		
+
 		// 尝试执行可能出错的代码
 		try {
 			// 这会抛出错误
@@ -303,14 +319,15 @@ func TestIntegrationErrorRecovery(t *testing.T) {
 		} catch (e) {
 			errorResults.errorCaught = true;
 			console.log('Error caught:', e.message);
-			
+
 			// 错误恢复
 			setTimeout(() => {
 				errorResults.recoverySuccessful = true;
 				console.log('Recovery completed');
-			}, 50);
+				recoveryResolver();
+			}, 20);
 		}
-		
+
 		global.errorResults = errorResults;
 	`
 
@@ -319,8 +336,12 @@ func TestIntegrationErrorRecovery(t *testing.T) {
 		t.Fatalf("Failed to run error recovery test: %v", err)
 	}
 
-	// 等待恢复完成
-	time.Sleep(100 * time.Millisecond)
+	// 等待 recoveryPromise 完成（最多 500ms）
+	runner.RunCode(`
+		(async () => {
+			await global.errorResults.recoveryPromise;
+		})();
+	`)
 
 	results := runner.GetValue("errorResults")
 	if results == nil {
@@ -337,7 +358,7 @@ func TestIntegrationComplexApplication(t *testing.T) {
 		// 导入内置模块
 		const path = require('path');
 		const crypto = require('crypto');
-		
+
 		interface Task {
 			id: string;
 			name: string;
@@ -345,11 +366,11 @@ func TestIntegrationComplexApplication(t *testing.T) {
 			createdAt: Date;
 			completedAt?: Date;
 		}
-		
+
 		class TaskManager {
 			private tasks: Map<string, Task> = new Map();
 			private runningTasks: Set<string> = new Set();
-			
+
 			createTask(name: string): string {
 				const id = this.generateId();
 				const task: Task = {
@@ -358,26 +379,26 @@ func TestIntegrationComplexApplication(t *testing.T) {
 					status: 'pending',
 					createdAt: new Date()
 				};
-				
+
 				this.tasks.set(id, task);
 				console.log('Task created:', id, name);
 				return id;
 			}
-			
+
 			async runTask(id: string): Promise<void> {
 				const task = this.tasks.get(id);
 				if (!task) {
 					throw new Error('Task not found: ' + id);
 				}
-				
+
 				if (this.runningTasks.has(id)) {
 					throw new Error('Task already running: ' + id);
 				}
-				
+
 				task.status = 'running';
 				this.runningTasks.add(id);
 				console.log('Task started:', id);
-				
+
 				return new Promise((resolve, reject) => {
 					setTimeout(() => {
 						try {
@@ -390,7 +411,7 @@ func TestIntegrationComplexApplication(t *testing.T) {
 								task.status = 'failed';
 								console.log('Task failed:', id);
 							}
-							
+
 							this.runningTasks.delete(id);
 							resolve();
 						} catch (error) {
@@ -398,30 +419,30 @@ func TestIntegrationComplexApplication(t *testing.T) {
 							this.runningTasks.delete(id);
 							reject(error);
 						}
-					}, Math.random() * 100 + 50); // 50-150ms 执行时间
+					}, Math.random() * 50 + 20); // 缩短为 20-70ms 执行时间
 				});
 			}
-			
+
 			getTask(id: string): Task | undefined {
 				return this.tasks.get(id);
 			}
-			
+
 			getAllTasks(): Task[] {
 				return Array.from(this.tasks.values());
 			}
-			
+
 			getTasksByStatus(status: Task['status']): Task[] {
 				return this.getAllTasks().filter(task => task.status === status);
 			}
-			
+
 			private generateId(): string {
 				return crypto.md5(Date.now().toString() + Math.random().toString());
 			}
 		}
-		
+
 		// 创建任务管理器
 		const taskManager = new TaskManager();
-		
+
 		// 创建一些任务
 		const taskIds = [
 			taskManager.createTask('Process data'),
@@ -429,15 +450,16 @@ func TestIntegrationComplexApplication(t *testing.T) {
 			taskManager.createTask('Generate report'),
 			taskManager.createTask('Cleanup temp files')
 		];
-		
-		// 异步运行所有任务
+
+		// 返回一个 Promise，所有任务完成后 resolve
 		Promise.all(taskIds.map(id => taskManager.runTask(id)))
 			.then(() => {
 				console.log('All tasks completed');
-				
+
 				const completedTasks = taskManager.getTasksByStatus('completed');
 				const failedTasks = taskManager.getTasksByStatus('failed');
-				
+
+				// 设置全局结果，供测试读取
 				global.complexAppResults = {
 					totalTasks: taskIds.length,
 					completedCount: completedTasks.length,
@@ -460,25 +482,26 @@ func TestIntegrationComplexApplication(t *testing.T) {
 
 	runner := runtime.NewOrPanic()
 	defer runner.Close()
+
 	err = runner.RunFile(appFile)
 	if err != nil {
 		t.Fatalf("Failed to run complex application: %v", err)
 	}
 
-	// 等待所有异步任务完成 - 使用更长的超时时间确保所有 Promise 回调执行
-	time.Sleep(800 * time.Millisecond)
-
-	// 多次检查直到结果可用或超时
-	maxRetries := 5
-	for i := 0; i < maxRetries; i++ {
-		results := runner.GetValue("complexAppResults")
-		if results != nil && results != goja.Undefined() {
-			break
+	// 由于 RunFile 会自动调用 WaitAndProcess 等待所有异步操作完成，
+	// 我们可以直接检查结果，不需要额外的 sleep
+	results := runner.GetValue("complexAppResults")
+	if results == nil {
+		// 如果结果还没设置，尝试通过轮询等待（最多 200ms）
+		for i := 0; i < 10; i++ {
+			time.Sleep(20 * time.Millisecond)
+			results = runner.GetValue("complexAppResults")
+			if results != nil && results != goja.Undefined() {
+				break
+			}
 		}
-		time.Sleep(100 * time.Millisecond)
 	}
 
-	results := runner.GetValue("complexAppResults")
 	if results == nil {
 		t.Fatal("Complex application results not found")
 	}

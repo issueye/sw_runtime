@@ -114,6 +114,7 @@ func (m *Manager) RegisterModule(name string, module BuiltinModule) {
 
 func (m *Manager) Close() {
 	closeAllHTTPServers()
+	closeAllTCPServers()
 }
 
 // SetArgv 设置命令行参数

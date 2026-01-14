@@ -627,3 +627,36 @@ func (n *NetModule) getNextConnID() int {
 	n.connID++
 	return n.connID
 }
+
+// closeAllTCPServers 关闭所有注册的 TCP 服务器
+func closeAllTCPServers() {
+	tcpServerRegistry.Lock()
+	servers := make([]*TCPServer, 0, len(tcpServerRegistry.servers))
+	for s := range tcpServerRegistry.servers {
+		servers = append(servers, s)
+	}
+	tcpServerRegistry.Unlock()
+
+	// 并发关闭所有服务器
+	var wg sync.WaitGroup
+	for _, s := range servers {
+		wg.Add(1)
+		go func(server *TCPServer) {
+			defer wg.Done()
+			if server.listener != nil {
+				server.listener.Close()
+			}
+		}(s)
+	}
+	// 设置超时等待
+	done := make(chan struct{})
+	go func() {
+		wg.Wait()
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		fmt.Printf("closeAllTCPServers: timeout waiting for servers to close\n")
+	}
+}

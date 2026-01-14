@@ -10,17 +10,19 @@ import (
 // TestHTTPRequestInterceptor 测试请求拦截器
 func TestHTTPRequestInterceptor(t *testing.T) {
 	runner := runtime.NewOrPanic()
+	defer runner.Close()
+	defer runner.Close()
 
 	script := `
-		const http = require('http');
-		
+		const http = require('http/client');
+
 		// 设置请求拦截器
 		http.setRequestInterceptor((config) => {
 			config.headers = config.headers || {};
 			config.headers['X-Custom-Header'] = 'TestValue';
 			return config;
 		});
-		
+
 		console.log('Request interceptor test passed');
 	`
 
@@ -33,16 +35,18 @@ func TestHTTPRequestInterceptor(t *testing.T) {
 // TestHTTPResponseInterceptor 测试响应拦截器
 func TestHTTPResponseInterceptor(t *testing.T) {
 	runner := runtime.NewOrPanic()
+	defer runner.Close()
+	defer runner.Close()
 
 	script := `
-		const http = require('http');
-		
+		const http = require('http/client');
+
 		// 设置响应拦截器
 		http.setResponseInterceptor((response) => {
 			response.data = { processed: true, original: response.data };
 			return response;
 		});
-		
+
 		console.log('Response interceptor test passed');
 	`
 
@@ -55,6 +59,7 @@ func TestHTTPResponseInterceptor(t *testing.T) {
 // TestHTTPBeforeRequest 测试 beforeRequest
 func TestHTTPBeforeRequest(t *testing.T) {
 	runner := runtime.NewOrPanic()
+	defer runner.Close()
 
 	script := `
 		const http = require('http');
@@ -84,6 +89,7 @@ func TestHTTPBeforeRequest(t *testing.T) {
 // TestHTTPAfterResponse 测试 afterResponse
 func TestHTTPAfterResponse(t *testing.T) {
 	runner := runtime.NewOrPanic()
+	defer runner.Close()
 
 	script := `
 		const http = require('http');
@@ -112,6 +118,7 @@ func TestHTTPAfterResponse(t *testing.T) {
 // TestHTTPTransformRequest 测试 transformRequest
 func TestHTTPTransformRequest(t *testing.T) {
 	runner := runtime.NewOrPanic()
+	defer runner.Close()
 
 	script := `
 		const http = require('http');
@@ -139,6 +146,7 @@ func TestHTTPTransformRequest(t *testing.T) {
 // TestHTTPTransformResponse 测试 transformResponse
 func TestHTTPTransformResponse(t *testing.T) {
 	runner := runtime.NewOrPanic()
+	defer runner.Close()
 
 	script := `
 		const http = require('http');
@@ -166,6 +174,7 @@ func TestHTTPTransformResponse(t *testing.T) {
 // TestHTTPHeaderModification 测试请求头修改
 func TestHTTPHeaderModification(t *testing.T) {
 	runner := runtime.NewOrPanic()
+	defer runner.Close()
 
 	script := `
 		const http = require('http');
@@ -199,6 +208,7 @@ func TestHTTPHeaderModification(t *testing.T) {
 // TestHTTPParamsModification 测试请求参数修改
 func TestHTTPParamsModification(t *testing.T) {
 	runner := runtime.NewOrPanic()
+	defer runner.Close()
 
 	script := `
 		const http = require('http');
@@ -229,6 +239,7 @@ func TestHTTPParamsModification(t *testing.T) {
 // TestHTTPDataModification 测试请求体修改
 func TestHTTPDataModification(t *testing.T) {
 	runner := runtime.NewOrPanic()
+	defer runner.Close()
 
 	script := `
 		const http = require('http');
@@ -263,6 +274,7 @@ func TestHTTPInterceptorChain(t *testing.T) {
 	t.Skip("Skipping actual HTTP request test")
 
 	runner := runtime.NewOrPanic()
+	defer runner.Close()
 
 	script := `
 		const http = require('http');
@@ -306,6 +318,7 @@ func TestHTTPInterceptorChain(t *testing.T) {
 // BenchmarkHTTPInterceptor 性能测试
 func BenchmarkHTTPInterceptor(b *testing.B) {
 	runner := runtime.NewOrPanic()
+	defer runner.Close()
 
 	script := `
 		const http = require('http');

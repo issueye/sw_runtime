@@ -10,6 +10,8 @@ import (
 // TestTimeModule 测试时间模块基础功能
 func TestTimeModule(t *testing.T) {
 	runner := runtime.NewOrPanic()
+	defer runner.Close()
+	defer runner.Close()
 
 	script := `
 		const time = require('time');
@@ -30,6 +32,7 @@ func TestTimeModule(t *testing.T) {
 // TestTimeNow 测试获取当前时间
 func TestTimeNow(t *testing.T) {
 	runner := runtime.NewOrPanic()
+	defer runner.Close()
 
 	script := `
 		const time = require('time');
@@ -61,6 +64,7 @@ func TestTimeNow(t *testing.T) {
 // TestTimeFormat 测试时间格式化
 func TestTimeFormat(t *testing.T) {
 	runner := runtime.NewOrPanic()
+	defer runner.Close()
 
 	script := `
 		const time = require('time');
@@ -85,6 +89,7 @@ func TestTimeFormat(t *testing.T) {
 // TestTimeParse 测试时间解析
 func TestTimeParse(t *testing.T) {
 	runner := runtime.NewOrPanic()
+	defer runner.Close()
 
 	script := `
 		const time = require('time');
@@ -119,6 +124,7 @@ func TestTimeParse(t *testing.T) {
 // TestTimeAdd 测试时间计算
 func TestTimeAdd(t *testing.T) {
 	runner := runtime.NewOrPanic()
+	defer runner.Close()
 
 	script := `
 		const time = require('time');
@@ -157,6 +163,7 @@ func TestTimeAdd(t *testing.T) {
 // TestTimeComparison 测试时间比较
 func TestTimeComparison(t *testing.T) {
 	runner := runtime.NewOrPanic()
+	defer runner.Close()
 
 	script := `
 		const time = require('time');
@@ -184,6 +191,7 @@ func TestTimeComparison(t *testing.T) {
 // TestTimeDiff 测试时间差计算
 func TestTimeDiff(t *testing.T) {
 	runner := runtime.NewOrPanic()
+	defer runner.Close()
 
 	script := `
 		const time = require('time');
@@ -213,6 +221,7 @@ func TestTimeDiff(t *testing.T) {
 // TestTimeComponents 测试时间组件获取
 func TestTimeComponents(t *testing.T) {
 	runner := runtime.NewOrPanic()
+	defer runner.Close()
 
 	script := `
 		const time = require('time');
@@ -251,6 +260,7 @@ func TestTimeComponents(t *testing.T) {
 // TestTimeCreate 测试时间创建
 func TestTimeCreate(t *testing.T) {
 	runner := runtime.NewOrPanic()
+	defer runner.Close()
 
 	script := `
 		const time = require('time');
@@ -288,6 +298,7 @@ func TestTimeCreate(t *testing.T) {
 // TestTimeFromUnix 测试从时间戳创建
 func TestTimeFromUnix(t *testing.T) {
 	runner := runtime.NewOrPanic()
+	defer runner.Close()
 
 	script := `
 		const time = require('time');
@@ -310,6 +321,7 @@ func TestTimeFromUnix(t *testing.T) {
 // TestTimeSleep 测试延迟执行
 func TestTimeSleep(t *testing.T) {
 	runner := runtime.NewOrPanic()
+	defer runner.Close()
 
 	script := `
 		const time = require('time');
@@ -341,6 +353,7 @@ func TestTimeSleep(t *testing.T) {
 // TestTimeConstants 测试时间常量
 func TestTimeConstants(t *testing.T) {
 	runner := runtime.NewOrPanic()
+	defer runner.Close()
 
 	script := `
 		const time = require('time');
@@ -372,6 +385,7 @@ func TestTimeConstants(t *testing.T) {
 // BenchmarkTimeModule 性能测试
 func BenchmarkTimeModule(b *testing.B) {
 	runner := runtime.NewOrPanic()
+	defer runner.Close()
 
 	script := `
 		const time = require('time');
@@ -390,6 +404,7 @@ func BenchmarkTimeModule(b *testing.B) {
 // TestTimeSetInterval 测试 setInterval
 func TestTimeSetInterval(t *testing.T) {
 	runner := runtime.NewOrPanic()
+	defer runner.Close()
 
 	script := `
 		const time = require('time');
@@ -423,6 +438,7 @@ func TestTimeSetInterval(t *testing.T) {
 // TestTimeClearInterval 测试 clearInterval
 func TestTimeClearInterval(t *testing.T) {
 	runner := runtime.NewOrPanic()
+	defer runner.Close()
 
 	script := `
 		const time = require('time');
@@ -455,6 +471,7 @@ func TestTimeClearInterval(t *testing.T) {
 // TestTimeCreateTicker 测试 createTicker
 func TestTimeCreateTicker(t *testing.T) {
 	runner := runtime.NewOrPanic()
+	defer runner.Close()
 
 	script := `
 		const time = require('time');
@@ -501,6 +518,7 @@ func TestTimeCreateTicker(t *testing.T) {
 // TestTickerReset 测试 ticker reset
 func TestTickerReset(t *testing.T) {
 	runner := runtime.NewOrPanic()
+	defer runner.Close()
 
 	script := `
 		const time = require('time');
@@ -533,6 +551,7 @@ func TestTickerReset(t *testing.T) {
 // TestMultipleTickers 测试多个定时器
 func TestMultipleTickers(t *testing.T) {
 	runner := runtime.NewOrPanic()
+	defer runner.Close()
 
 	script := `
 		const time = require('time');
@@ -570,6 +589,7 @@ func TestMultipleTickers(t *testing.T) {
 // TestDayjsBasic 测试 dayjs 基础用法
 func TestDayjsBasic(t *testing.T) {
 	runner := runtime.NewOrPanic()
+	defer runner.Close()
 
 	script := `
 		const time = require('time');
@@ -598,6 +618,7 @@ func TestDayjsBasic(t *testing.T) {
 // TestDayjsFromString 测试从字符串创建
 func TestDayjsFromString(t *testing.T) {
 	runner := runtime.NewOrPanic()
+	defer runner.Close()
 
 	script := `
 		const time = require('time');
@@ -635,6 +656,7 @@ func TestDayjsFromString(t *testing.T) {
 // TestDayjsUnix 测试从时间戳创建
 func TestDayjsUnix(t *testing.T) {
 	runner := runtime.NewOrPanic()
+	defer runner.Close()
 
 	script := `
 		const time = require('time');
@@ -671,6 +693,7 @@ func TestDayjsUnix(t *testing.T) {
 // TestDayjsChain 测试链式调用
 func TestDayjsChain(t *testing.T) {
 	runner := runtime.NewOrPanic()
+	defer runner.Close()
 
 	script := `
 		const time = require('time');
@@ -698,6 +721,7 @@ func TestDayjsChain(t *testing.T) {
 // TestDayjsAddSubtract 测试加减时间
 func TestDayjsAddSubtract(t *testing.T) {
 	runner := runtime.NewOrPanic()
+	defer runner.Close()
 
 	script := `
 		const time = require('time');
@@ -734,6 +758,7 @@ func TestDayjsAddSubtract(t *testing.T) {
 // TestDayjsStartOfEndOf 测试 startOf/endOf
 func TestDayjsStartOfEndOf(t *testing.T) {
 	runner := runtime.NewOrPanic()
+	defer runner.Close()
 
 	script := `
 		const time = require('time');
@@ -772,6 +797,7 @@ func TestDayjsStartOfEndOf(t *testing.T) {
 // TestDayjsComparison 测试时间比较
 func TestDayjsComparison(t *testing.T) {
 	runner := runtime.NewOrPanic()
+	defer runner.Close()
 
 	script := `
 		const time = require('time');
@@ -807,6 +833,7 @@ func TestDayjsComparison(t *testing.T) {
 // TestDayjsFormatTokens 测试各种格式 tokens
 func TestDayjsFormatTokens(t *testing.T) {
 	runner := runtime.NewOrPanic()
+	defer runner.Close()
 
 	script := `
 		const time = require('time');
@@ -854,6 +881,7 @@ func TestDayjsFormatTokens(t *testing.T) {
 // TestDayjsClone 测试克隆
 func TestDayjsClone(t *testing.T) {
 	runner := runtime.NewOrPanic()
+	defer runner.Close()
 
 	script := `
 		const time = require('time');
@@ -884,6 +912,7 @@ func TestDayjsClone(t *testing.T) {
 // TestDayjsDiff 测试时间差
 func TestDayjsDiff(t *testing.T) {
 	runner := runtime.NewOrPanic()
+	defer runner.Close()
 
 	script := `
 		const time = require('time');
@@ -915,6 +944,7 @@ func TestDayjsDiff(t *testing.T) {
 // TestDayjsUtils 测试其他工具方法
 func TestDayjsUtils(t *testing.T) {
 	runner := runtime.NewOrPanic()
+	defer runner.Close()
 
 	script := `
 		const time = require('time');
@@ -957,6 +987,7 @@ func TestDayjsUtils(t *testing.T) {
 // TestDayjsComplexChain 测试复杂链式调用
 func TestDayjsComplexChain(t *testing.T) {
 	runner := runtime.NewOrPanic()
+	defer runner.Close()
 
 	script := `
 		const time = require('time');
@@ -990,6 +1021,7 @@ func TestDayjsComplexChain(t *testing.T) {
 // TestDayjsSubtract 测试 subtract
 func TestDayjsSubtract(t *testing.T) {
 	runner := runtime.NewOrPanic()
+	defer runner.Close()
 
 	script := `
 		const time = require('time');
@@ -1023,6 +1055,7 @@ func TestDayjsSubtract(t *testing.T) {
 // TestDayjsIsSame 测试 isSame
 func TestDayjsIsSame(t *testing.T) {
 	runner := runtime.NewOrPanic()
+	defer runner.Close()
 
 	script := `
 		const time = require('time');
@@ -1052,6 +1085,7 @@ func TestDayjsIsSame(t *testing.T) {
 // TestDayjsStartOfEndOfUnit 测试 startOf/endOf 单位
 func TestDayjsStartOfEndOfUnit(t *testing.T) {
 	runner := runtime.NewOrPanic()
+	defer runner.Close()
 
 	script := `
 		const time = require('time');
@@ -1086,6 +1120,7 @@ func TestDayjsStartOfEndOfUnit(t *testing.T) {
 // TestDayjsToISOString 测试 toISOString
 func TestDayjsToISOString(t *testing.T) {
 	runner := runtime.NewOrPanic()
+	defer runner.Close()
 
 	script := `
 		const time = require('time');
@@ -1118,6 +1153,7 @@ func TestDayjsToISOString(t *testing.T) {
 // TestDayjsGetDate 测试 getDate 别名
 func TestDayjsGetDate(t *testing.T) {
 	runner := runtime.NewOrPanic()
+	defer runner.Close()
 
 	script := `
 		const time = require('time');
@@ -1143,6 +1179,7 @@ func TestDayjsGetDate(t *testing.T) {
 // TestDayjsGetValueOf 测试 getValueOf
 func TestDayjsGetValueOf(t *testing.T) {
 	runner := runtime.NewOrPanic()
+	defer runner.Close()
 
 	script := `
 		const time = require('time');

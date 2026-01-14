@@ -28,6 +28,7 @@ func TestProxyModuleCreation(t *testing.T) {
 // TestHTTPProxyCreation 测试 HTTP 代理创建
 func TestHTTPProxyCreation(t *testing.T) {
 	runner := runtime.NewOrPanic()
+	defer runner.Close()
 
 	script := `
 		const proxy = require('proxy');
@@ -61,6 +62,7 @@ func TestHTTPProxyCreation(t *testing.T) {
 // TestTCPProxyCreation 测试 TCP 代理创建
 func TestTCPProxyCreation(t *testing.T) {
 	runner := runtime.NewOrPanic()
+	defer runner.Close()
 
 	script := `
 		const proxy = require('proxy');
@@ -94,6 +96,7 @@ func TestTCPProxyCreation(t *testing.T) {
 // TestHTTPProxyEventHandlers 测试 HTTP 代理事件处理器
 func TestHTTPProxyEventHandlers(t *testing.T) {
 	runner := runtime.NewOrPanic()
+	defer runner.Close()
 
 	script := `
 		const proxy = require('proxy');
@@ -128,6 +131,7 @@ func TestHTTPProxyEventHandlers(t *testing.T) {
 // TestTCPProxyEventHandlers 测试 TCP 代理事件处理器
 func TestTCPProxyEventHandlers(t *testing.T) {
 	runner := runtime.NewOrPanic()
+	defer runner.Close()
 
 	script := `
 		const proxy = require('proxy');
@@ -166,9 +170,8 @@ func TestTCPProxyEventHandlers(t *testing.T) {
 
 // TestHTTPProxyListenMethod 测试 HTTP 代理 listen 方法
 func TestHTTPProxyListenMethod(t *testing.T) {
-	t.Skip("Skipping HTTP proxy listen test - requires actual server startup")
-
 	runner := runtime.NewOrPanic()
+	defer runner.Close()
 
 	script := `
 		const proxy = require('proxy');
@@ -194,9 +197,8 @@ func TestHTTPProxyListenMethod(t *testing.T) {
 
 // TestTCPProxyListenMethod 测试 TCP 代理 listen 方法
 func TestTCPProxyListenMethod(t *testing.T) {
-	t.Skip("Skipping TCP proxy listen test - requires actual server startup")
-
 	runner := runtime.NewOrPanic()
+	defer runner.Close()
 
 	script := `
 		const proxy = require('proxy');
@@ -223,6 +225,7 @@ func TestTCPProxyListenMethod(t *testing.T) {
 // TestHTTPProxyInvalidTarget 测试 HTTP 代理无效目标
 func TestHTTPProxyInvalidTarget(t *testing.T) {
 	runner := runtime.NewOrPanic()
+	defer runner.Close()
 
 	script := `
 		const proxy = require('proxy');
@@ -244,6 +247,7 @@ func TestHTTPProxyInvalidTarget(t *testing.T) {
 // TestProxyModuleMethods 测试代理模块方法
 func TestProxyModuleMethods(t *testing.T) {
 	runner := runtime.NewOrPanic()
+	defer runner.Close()
 
 	script := `
 		const proxy = require('proxy');
@@ -269,6 +273,7 @@ func TestProxyModuleMethods(t *testing.T) {
 // BenchmarkHTTPProxyCreation 性能测试：HTTP 代理创建
 func BenchmarkHTTPProxyCreation(b *testing.B) {
 	runner := runtime.NewOrPanic()
+	defer runner.Close()
 
 	script := `
 		const proxy = require('proxy');
@@ -288,6 +293,7 @@ func BenchmarkHTTPProxyCreation(b *testing.B) {
 // BenchmarkTCPProxyCreation 性能测试：TCP 代理创建
 func BenchmarkTCPProxyCreation(b *testing.B) {
 	runner := runtime.NewOrPanic()
+	defer runner.Close()
 
 	script := `
 		const proxy = require('proxy');

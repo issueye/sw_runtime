@@ -62,14 +62,25 @@ func closeAllHTTPServers() {
 	}
 	serverRegistry.Unlock()
 
-	// 关闭所有服务器
+	// 并发关闭所有服务器
+	var wg sync.WaitGroup
 	for _, s := range servers {
-		if s.server != nil {
-			ctx, cancel := context.WithTimeout(context.Background(), consts.DefaultHTTPTimeout)
-			s.server.Shutdown(ctx)
-			cancel()
-		}
-		s.stopVMProcessor()
+		wg.Add(1)
+		go func(server *HTTPServer) {
+			defer wg.Done()
+			server.Close()
+		}(s)
+	}
+	// 设置超时等待
+	done := make(chan struct{})
+	go func() {
+		wg.Wait()
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		fmt.Printf("closeAllHTTPServers: timeout waiting for servers to close\n")
 	}
 }
 
@@ -377,11 +388,36 @@ func (s *HTTPServer) stopVMProcessor() {
 	s.stopOnce.Do(func() {
 		// 先发送停止信号
 		close(s.stopChan)
-		// 等待一小段时间让 VMProcessor 处理完当前任务
-		time.Sleep(100 * time.Millisecond)
+		// 等待 goroutine 完成（最多 2 秒）
+		done := make(chan struct{})
+		go func() {
+			s.wg.Wait()
+			close(done)
+		}()
+		select {
+		case <-done:
+		case <-time.After(2 * time.Second):
+			fmt.Printf("stopVMProcessor: timeout waiting for goroutine to finish\n")
+		}
 		// 关闭请求通道
 		close(s.requestChan)
 	})
+}
+
+// Close 关闭服务器（供 closeAllHTTPServers 使用）
+func (s *HTTPServer) Close() {
+	// 停止 VM 处理器
+	s.stopVMProcessor()
+
+	// 关闭 HTTP 服务器
+	if s.server != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		s.server.Shutdown(ctx)
+		cancel()
+	}
+
+	// 从注册表中移除
+	unregisterServer(s)
 }
 
 // createSetWSAllowedOrigins 创建设置允许来源的方法
@@ -833,13 +869,42 @@ func (h *HTTPServerModule) createHTTPHandler(server *HTTPServer, method, path st
 		server.mutex.RLock()
 		routes := server.routes[actualMethod]
 		middleware := server.middleware
+		// 获取所有方法的路由来检查路径是否存在
+		allRoutes := server.routes
 		server.mutex.RUnlock()
 
 		var handler goja.Value
 		var params map[string]string
 		found := false
 
-		// 匹配路由
+		// 首先检查路径是否存在（任何方法）
+		pathExists := false
+		for _, routeList := range allRoutes {
+			for _, entry := range routeList {
+				if entry.pattern.isStatic {
+					if entry.path == r.URL.Path {
+						pathExists = true
+						break
+					}
+				} else {
+					if _, match := entry.pattern.match(r.URL.Path); match {
+						pathExists = true
+						break
+					}
+				}
+			}
+			if pathExists {
+				break
+			}
+		}
+
+		// 如果路径不存在，返回 404
+		if !pathExists {
+			http.NotFound(w, r)
+			return
+		}
+
+		// 匹配路由（当前方法）
 		for _, entry := range routes {
 			if entry.pattern.isStatic {
 				if entry.path == r.URL.Path {
@@ -857,9 +922,11 @@ func (h *HTTPServerModule) createHTTPHandler(server *HTTPServer, method, path st
 			}
 		}
 
+		// 路径存在但方法不支持，返回 405 Method Not Allowed
 		if !found {
-			// 如果没有匹配到路径参数路由，尝试精确匹配
-			http.NotFound(w, r)
+			w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			w.Write([]byte("Method not allowed"))
 			return
 		}
 

@@ -332,7 +332,15 @@ func (el *EventLoop) WaitAndProcess() {
 	checkTicker := time.NewTicker(10 * time.Millisecond)
 	defer checkTicker.Stop()
 
+	// 最大等待时间，防止 HTTP 服务器未关闭时无限等待
+	maxWait := time.Now().Add(60 * time.Second)
+
 	for el.running.Load() {
+		// 检查是否超过最大等待时间
+		if time.Now().After(maxWait) {
+			return
+		}
+
 		select {
 		case <-sigChan:
 			el.Stop()

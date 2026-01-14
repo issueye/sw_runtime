@@ -18,7 +18,8 @@
       "WebFetch(domain:day.js.org)",
       "WebFetch(domain:github.com)",
       "WebFetch(domain:www.npmjs.com)",
-      "Bash(tee:*)"
+      "Bash(tee:*)",
+      "Bash(go clean:*)"
     ]
   }
 }

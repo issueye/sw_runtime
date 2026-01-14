@@ -16,6 +16,7 @@ type TimeModule struct {
 	tickers  map[int]*Ticker
 	mutex    sync.RWMutex
 	tickerId int
+	vmMu     sync.Mutex // 用于保护 VM 访问的锁
 }
 
 // Ticker 定时器
@@ -983,6 +984,14 @@ func (t *TimeModule) setInterval(call goja.FunctionCall) goja.Value {
 			case <-ticker.ticker.C:
 				ticker.mutex.RLock()
 				if !ticker.stopped {
+					// 使用 VM 锁保护回调调用
+					t.vmMu.Lock()
+					defer t.vmMu.Unlock()
+					defer func() {
+						if r := recover(); r != nil {
+							fmt.Printf("Ticker callback panic: %v\n", r)
+						}
+					}()
 					_, err := ticker.callback(goja.Undefined())
 					if err != nil {
 						fmt.Printf("Ticker callback error: %v\n", err)
@@ -1082,9 +1091,17 @@ func (t *TimeModule) createTicker(call goja.FunctionCall) goja.Value {
 				case <-ticker.ticker.C:
 					ticker.mutex.RLock()
 					if !ticker.stopped && ticker.callback != nil {
+						// 使用 VM 锁保护回调调用
+						t.vmMu.Lock()
+						defer t.vmMu.Unlock()
+						defer func() {
+							if r := recover(); r != nil {
+								fmt.Printf("createTicker callback panic: %v\n", r)
+							}
+						}()
 						_, err := ticker.callback(goja.Undefined())
 						if err != nil {
-							fmt.Printf("Ticker callback error: %v\n", err)
+							fmt.Printf("createTicker callback error: %v\n", err)
 						}
 					}
 					ticker.mutex.RUnlock()
