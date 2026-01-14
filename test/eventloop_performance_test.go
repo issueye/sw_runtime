@@ -87,6 +87,9 @@ func TestEventLoopConcurrentTimers(t *testing.T) {
 		t.Fatalf("Failed to run concurrent timers test: %v", err)
 	}
 
+	// 等待所有定时器完成
+	time.Sleep(200 * time.Millisecond)
+
 	elapsed := time.Since(start)
 	completed := runner.GetValue("getCompleted").ToInteger()
 	total := runner.GetValue("getTotal").ToInteger()

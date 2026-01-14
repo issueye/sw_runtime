@@ -17,16 +17,6 @@ import (
 // EventLoopType 事件循环类型
 type EventLoopType int
 
-const (
-	// EventLoopSimple 简单事件循环（轮询模式）
-	EventLoopSimple EventLoopType = iota
-	// EventLoopOptimized 优化事件循环（事件驱动模式）
-	EventLoopOptimized
-)
-
-// DefaultEventLoopType 默认事件循环类型
-var DefaultEventLoopType = EventLoopOptimized
-
 // eventLoopInterface 事件循环接口
 type eventLoopInterface interface {
 	Start()
@@ -107,22 +97,16 @@ func ReleaseRunner(r *Runner) {
 
 // New 创建新的运行器（使用默认事件循环类型）
 func New() (*Runner, error) {
-	return NewWithEventLoop(DefaultEventLoopType)
+	return NewWithEventLoop()
 }
 
 // NewWithEventLoop 创建新的运行器，指定事件循环类型
-func NewWithEventLoop(loopType EventLoopType) (*Runner, error) {
+func NewWithEventLoop() (*Runner, error) {
 	vm := goja.New()
 	vm.SetFieldNameMapper(goja.TagFieldNameMapper("json", true))
 
 	// 根据类型创建事件循环
-	var loop eventLoopInterface
-	switch loopType {
-	case EventLoopOptimized:
-		loop = NewEventLoop(vm)
-	default:
-		loop = NewSimpleEventLoop(vm)
-	}
+	loop := NewEventLoop(vm)
 
 	// 获取当前工作目录作为基础路径
 	basePath, err := os.Getwd()
@@ -161,13 +145,7 @@ func NewWithWorkingDir(workingDir string) (*Runner, error) {
 	vm.SetFieldNameMapper(goja.TagFieldNameMapper("json", true))
 
 	// 根据类型创建事件循环
-	var loop eventLoopInterface
-	switch DefaultEventLoopType {
-	case EventLoopOptimized:
-		loop = NewEventLoop(vm)
-	default:
-		loop = NewSimpleEventLoop(vm)
-	}
+	loop := NewEventLoop(vm)
 
 	// 使用指定的工作目录
 	basePath := filepath.Clean(workingDir)
@@ -268,10 +246,6 @@ func (r *Runner) setupBuiltinsWithDir(workingDir string) {
 	process := r.modules.GetBuiltinModule("process")
 	if process != nil {
 		r.vm.Set("process", process)
-		// 设置 nextTick 函数到管理器，由 process 模块调用
-		r.modules.SetNextTick(r.loop.NextTick)
-		// 设置 RunOnLoopSync 函数，由 Raft 等模块使用
-		r.modules.SetRunOnLoopSync(r.loop.RunOnLoopSync)
 	}
 
 	// 启用 Promise

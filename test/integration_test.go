@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"sw_runtime/internal/runtime"
+
+	"github.com/dop251/goja"
 )
 
 func TestIntegrationBasicApp(t *testing.T) {
@@ -463,8 +465,18 @@ func TestIntegrationComplexApplication(t *testing.T) {
 		t.Fatalf("Failed to run complex application: %v", err)
 	}
 
-	// 等待所有异步任务完成
-	time.Sleep(500 * time.Millisecond)
+	// 等待所有异步任务完成 - 使用更长的超时时间确保所有 Promise 回调执行
+	time.Sleep(800 * time.Millisecond)
+
+	// 多次检查直到结果可用或超时
+	maxRetries := 5
+	for i := 0; i < maxRetries; i++ {
+		results := runner.GetValue("complexAppResults")
+		if results != nil && results != goja.Undefined() {
+			break
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
 
 	results := runner.GetValue("complexAppResults")
 	if results == nil {

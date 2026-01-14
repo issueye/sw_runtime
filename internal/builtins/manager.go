@@ -2,6 +2,7 @@ package builtins
 
 import (
 	"strings"
+	"time"
 
 	"github.com/dop251/goja"
 )
@@ -19,6 +20,8 @@ type Manager struct {
 	modules    map[string]BuiltinModule
 	namespaces map[string]NamespaceModule
 	basePath   string
+	startTime  time.Time
+	argv       []string
 }
 
 func NewManager(vm *goja.Runtime, basePath string) *Manager {
@@ -27,6 +30,8 @@ func NewManager(vm *goja.Runtime, basePath string) *Manager {
 		modules:    make(map[string]BuiltinModule),
 		namespaces: make(map[string]NamespaceModule),
 		basePath:   basePath,
+		startTime:  time.Now(),
+		argv:       make([]string, 0),
 	}
 	m.registerBuiltinModules()
 	return m
@@ -119,23 +124,4 @@ func (m *Manager) SetArgv(argv []string) {
 // SetStartTime 设置起始时间
 func (m *Manager) SetStartTime(t time.Time) {
 	m.startTime = t
-}
-
-// SetNextTick 设置 NextTick 函数
-func (m *Manager) SetNextTick(fn func(goja.FunctionCall) goja.Value) {
-	m.nextTickFunc = fn
-}
-
-// SetRunOnLoopSync 设置 RunOnLoopSync 函数
-func (m *Manager) SetRunOnLoopSync(fn func(func(*goja.Runtime) interface{}) interface{}) {
-	m.runOnLoopSyncFunc = fn
-}
-
-// RunOnLoopSync 同步执行
-func (m *Manager) RunOnLoopSync(fn func(*goja.Runtime) interface{}) interface{} {
-	if m.runOnLoopSyncFunc != nil {
-		return m.runOnLoopSyncFunc(fn)
-	}
-	// Fallback or panic? For now return nil
-	return nil
 }

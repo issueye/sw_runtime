@@ -285,7 +285,7 @@ func (ms *System) executeModule(code string, module *Module) error {
 	} else if (typeof global !== 'undefined') {
 		global.import = importFunc;
 	}
-	
+
 %s
 });`, code)
 
@@ -383,16 +383,6 @@ func (ms *System) SetArgv(argv []string) {
 // SetStartTime 设置起始时间
 func (ms *System) SetStartTime(t time.Time) {
 	ms.builtinManager.SetStartTime(t)
-}
-
-// SetNextTick 设置 NextTick 函数
-func (ms *System) SetNextTick(fn func(goja.FunctionCall) goja.Value) {
-	ms.builtinManager.SetNextTick(fn)
-}
-
-// SetRunOnLoopSync 设置 RunOnLoopSync 函数
-func (ms *System) SetRunOnLoopSync(fn func(func(*goja.Runtime) interface{}) interface{}) {
-	ms.builtinManager.SetRunOnLoopSync(fn)
 }
 
 // GetBuiltinModule 获取内置模块对象

@@ -46,7 +46,6 @@ func (p *ProcessModule) GetModule() *goja.Object {
 	obj.Set("exit", p.exit)
 	obj.Set("uptime", p.uptime)
 	obj.Set("memoryUsage", p.memoryUsage)
-	obj.Set("nextTick", p.nextTick)
 	obj.Set("hrtime", p.hrtime)
 	obj.Set("kill", p.kill)
 
@@ -216,12 +215,4 @@ func (p *ProcessModule) memoryUsage(call goja.FunctionCall) goja.Value {
 	}
 
 	return result
-}
-
-// nextTick 调度微任务
-func (p *ProcessModule) nextTick(call goja.FunctionCall) goja.Value {
-	if p.manager.nextTickFunc != nil {
-		return p.manager.nextTickFunc(call)
-	}
-	return goja.Undefined()
 }
