@@ -1,24 +1,26 @@
-package builtins
+package http
 
 import (
+	"sw_runtime/internal/builtins/types"
+
 	"github.com/dop251/goja"
 )
 
-type HTTPNamespace struct {
+type Namespace struct {
 	vm     *goja.Runtime
 	client *HTTPModule
 	server *HTTPServerModule
 }
 
-func NewHTTPNamespace(vm *goja.Runtime) *HTTPNamespace {
-	return &HTTPNamespace{
+func NewNamespace(vm *goja.Runtime) *Namespace {
+	return &Namespace{
 		vm:     vm,
 		client: NewHTTPModule(vm),
 		server: NewHTTPServerModule(vm),
 	}
 }
 
-func (h *HTTPNamespace) GetModule() *goja.Object {
+func (h *Namespace) GetModule() *goja.Object {
 	obj := h.vm.NewObject()
 
 	clientObj := h.client.GetModule()
@@ -30,7 +32,7 @@ func (h *HTTPNamespace) GetModule() *goja.Object {
 	return obj
 }
 
-func (h *HTTPNamespace) GetSubModule(name string) (BuiltinModule, bool) {
+func (h *Namespace) GetSubModule(name string) (types.BuiltinModule, bool) {
 	switch name {
 	case "client":
 		return h.client, true

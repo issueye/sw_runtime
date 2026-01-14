@@ -1,4 +1,4 @@
-package builtins
+package http
 
 import (
 	"context"
@@ -53,8 +53,8 @@ func unregisterServer(s *HTTPServer) {
 	delete(serverRegistry.servers, s)
 }
 
-// closeAllHTTPServers 关闭所有注册的 HTTP 服务器
-func closeAllHTTPServers() {
+// CloseAllHTTPServers 关闭所有注册的 HTTP 服务器
+func CloseAllHTTPServers() {
 	serverRegistry.Lock()
 	servers := make([]*HTTPServer, 0, len(serverRegistry.servers))
 	for s := range serverRegistry.servers {
