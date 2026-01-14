@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"sw_runtime/internal/builtins"
+	"sw_runtime/internal/builtins/net"
 	"sw_runtime/internal/runtime"
 
 	"github.com/dop251/goja"
@@ -13,7 +13,7 @@ import (
 // TestProxyModuleCreation 测试代理模块创建
 func TestProxyModuleCreation(t *testing.T) {
 	vm := goja.New()
-	proxyModule := builtins.NewProxyModule(vm)
+	proxyModule := net.NewProxyModule(vm)
 
 	if proxyModule == nil {
 		t.Fatal("Failed to create proxy module")
@@ -33,12 +33,12 @@ func TestHTTPProxyCreation(t *testing.T) {
 	script := `
 		const proxy = require('proxy');
 		const httpProxy = proxy.createHTTPProxy('https://httpbin.org');
-		
+
 		// 验证代理对象存在
 		if (!httpProxy) {
 			throw new Error('Failed to create HTTP proxy');
 		}
-		
+
 		// 验证方法存在
 		if (typeof httpProxy.on !== 'function') {
 			throw new Error('on method not found');
@@ -49,7 +49,7 @@ func TestHTTPProxyCreation(t *testing.T) {
 		if (typeof httpProxy.close !== 'function') {
 			throw new Error('close method not found');
 		}
-		
+
 		console.log('HTTP proxy created successfully');
 	`
 
@@ -67,12 +67,12 @@ func TestTCPProxyCreation(t *testing.T) {
 	script := `
 		const proxy = require('proxy');
 		const tcpProxy = proxy.createTCPProxy('localhost:6379');
-		
+
 		// 验证代理对象存在
 		if (!tcpProxy) {
 			throw new Error('Failed to create TCP proxy');
 		}
-		
+
 		// 验证方法存在
 		if (typeof tcpProxy.on !== 'function') {
 			throw new Error('on method not found');
@@ -83,7 +83,7 @@ func TestTCPProxyCreation(t *testing.T) {
 		if (typeof tcpProxy.close !== 'function') {
 			throw new Error('close method not found');
 		}
-		
+
 		console.log('TCP proxy created successfully');
 	`
 
@@ -101,24 +101,24 @@ func TestHTTPProxyEventHandlers(t *testing.T) {
 	script := `
 		const proxy = require('proxy');
 		const httpProxy = proxy.createHTTPProxy('https://httpbin.org');
-		
+
 		let requestHandlerCalled = false;
 		let responseHandlerCalled = false;
 		let errorHandlerCalled = false;
-		
+
 		// 注册事件处理器
 		httpProxy.on('request', (req) => {
 			requestHandlerCalled = true;
 		});
-		
+
 		httpProxy.on('response', (resp) => {
 			responseHandlerCalled = true;
 		});
-		
+
 		httpProxy.on('error', (err) => {
 			errorHandlerCalled = true;
 		});
-		
+
 		console.log('Event handlers registered');
 	`
 
@@ -136,29 +136,29 @@ func TestTCPProxyEventHandlers(t *testing.T) {
 	script := `
 		const proxy = require('proxy');
 		const tcpProxy = proxy.createTCPProxy('localhost:6379');
-		
+
 		let connectionHandlerCalled = false;
 		let dataHandlerCalled = false;
 		let closeHandlerCalled = false;
 		let errorHandlerCalled = false;
-		
+
 		// 注册事件处理器
 		tcpProxy.on('connection', (conn) => {
 			connectionHandlerCalled = true;
 		});
-		
+
 		tcpProxy.on('data', (data) => {
 			dataHandlerCalled = true;
 		});
-		
+
 		tcpProxy.on('close', () => {
 			closeHandlerCalled = true;
 		});
-		
+
 		tcpProxy.on('error', (err) => {
 			errorHandlerCalled = true;
 		});
-		
+
 		console.log('Event handlers registered');
 	`
 
@@ -176,13 +176,13 @@ func TestHTTPProxyListenMethod(t *testing.T) {
 	script := `
 		const proxy = require('proxy');
 		const httpProxy = proxy.createHTTPProxy('https://httpbin.org');
-		
+
 		let listenResult = null;
-		
+
 		httpProxy.listen('18888').then((result) => {
 			listenResult = result;
 		});
-		
+
 		'Listen method called';
 	`
 
@@ -203,13 +203,13 @@ func TestTCPProxyListenMethod(t *testing.T) {
 	script := `
 		const proxy = require('proxy');
 		const tcpProxy = proxy.createTCPProxy('localhost:6379');
-		
+
 		let listenResult = null;
-		
+
 		tcpProxy.listen('16380').then((result) => {
 			listenResult = result;
 		});
-		
+
 		'Listen method called';
 	`
 
@@ -229,7 +229,7 @@ func TestHTTPProxyInvalidTarget(t *testing.T) {
 
 	script := `
 		const proxy = require('proxy');
-		
+
 		try {
 			const httpProxy = proxy.createHTTPProxy('invalid-url');
 			console.log('Should have thrown error');
@@ -251,16 +251,16 @@ func TestProxyModuleMethods(t *testing.T) {
 
 	script := `
 		const proxy = require('proxy');
-		
+
 		// 验证模块方法存在
 		if (typeof proxy.createHTTPProxy !== 'function') {
 			throw new Error('createHTTPProxy method not found');
 		}
-		
+
 		if (typeof proxy.createTCPProxy !== 'function') {
 			throw new Error('createTCPProxy method not found');
 		}
-		
+
 		console.log('All methods exist');
 	`
 

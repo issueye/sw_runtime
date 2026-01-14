@@ -18,7 +18,10 @@ interface EdgeResponse {
 declare const request: EdgeRequest;
 declare let response: EdgeResponse | undefined;
 
-type AnyGlobal = typeof globalThis & { request: EdgeRequest; response?: EdgeResponse };
+type AnyGlobal = typeof globalThis & {
+  request: EdgeRequest;
+  response?: EdgeResponse;
+};
 
 const g = globalThis as AnyGlobal;
 
@@ -33,7 +36,7 @@ g.response = {
     "X-Edge-Service": "sw-runtime",
   },
   json: {
-    message: `Hello, ${name}!` ,
+    message: `Hello, ${name}!`,
     method: request.method,
     path: request.path,
     time: now,

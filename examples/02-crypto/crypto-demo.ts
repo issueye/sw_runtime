@@ -1,6 +1,6 @@
 // crypto-demo.ts - 加密功能演示
 
-const crypto = require('crypto');
+const { crypto } = require('utils');
 
 console.log('=== 加密功能演示 ===');
 

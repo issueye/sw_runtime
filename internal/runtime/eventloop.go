@@ -5,7 +5,8 @@ import (
 	"context"
 	"os"
 	"os/signal"
-	"sw_runtime/internal/builtins"
+	"sw_runtime/internal/builtins/http"
+	"sw_runtime/internal/builtins/net"
 	"sw_runtime/internal/pool"
 	"sync"
 	"sync/atomic"
@@ -377,12 +378,12 @@ func (el *EventLoop) hasWork() bool {
 	}
 
 	// 检查 HTTP 服务器
-	if builtins.IsHTTPServerRunning() {
+	if http.IsHTTPServerRunning() {
 		return true
 	}
 
 	// 检查 TCP 服务器
-	if builtins.IsTCPServerRunning() {
+	if net.IsTCPServerRunning() {
 		return true
 	}
 

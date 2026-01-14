@@ -2,9 +2,14 @@ package builtins
 
 import (
 	"strings"
+	"sw_runtime/internal/builtins/config"
 	"sw_runtime/internal/builtins/db"
+	"sw_runtime/internal/builtins/fs"
 	"sw_runtime/internal/builtins/http"
+	"sw_runtime/internal/builtins/net"
+	"sw_runtime/internal/builtins/process"
 	"sw_runtime/internal/builtins/types"
+	"sw_runtime/internal/builtins/utils"
 	"time"
 
 	"github.com/dop251/goja"
@@ -33,27 +38,45 @@ func NewManager(vm *goja.Runtime, basePath string) *Manager {
 }
 
 func (m *Manager) registerBuiltinModules() {
+	// HTTP 命名空间
 	httpNS := http.NewNamespace(m.vm)
 	m.namespaces["http"] = httpNS
 	m.modules["http"] = httpNS
 
-	db := db.NewNamespace(m.vm)
-	m.namespaces["db"] = db
-	m.modules["db"] = db
+	// DB 命名空间
+	dbNS := db.NewNamespace(m.vm)
+	m.namespaces["db"] = dbNS
+	m.modules["db"] = dbNS
 
-	m.modules["path"] = NewPathModule(m.vm)
-	m.modules["fs"] = NewFSModule(m.vm, m.basePath)
-	m.modules["crypto"] = NewCryptoModule(m.vm)
-	m.modules["zlib"] = NewCompressionModule(m.vm)
-	m.modules["compression"] = NewCompressionModule(m.vm)
-	m.modules["exec"] = NewExecModule(m.vm)
-	m.modules["child_process"] = NewExecModule(m.vm)
-	m.modules["websocket"] = NewWebSocketModule(m.vm)
-	m.modules["ws"] = NewWebSocketModule(m.vm)
-	m.modules["net"] = NewNetModule(m.vm)
-	m.modules["proxy"] = NewProxyModule(m.vm)
-	m.modules["time"] = NewTimeModule(m.vm)
-	m.modules["viper"] = NewViperModule(m.vm)
+	// Utils 命名空间 (path, time, util, compression, crypto)
+	utilsNS := utils.NewNamespace(m.vm)
+	m.namespaces["utils"] = utilsNS
+
+	// Net 命名空间 (net, proxy, websocket)
+	netNS := net.NewNamespace(m.vm)
+	m.namespaces["net"] = netNS
+
+	// FS 命名空间 (fs, os)
+	fsNS := fs.NewNamespace(m.vm, m.basePath)
+	m.namespaces["fs"] = fsNS
+
+	// Config 命名空间 (viper)
+	configNS := config.NewNamespace(m.vm)
+	m.namespaces["config"] = configNS
+
+	// Process 命名空间 (process, exec)
+	processNS := process.NewNamespace(m.vm, m.argv, m.startTime)
+	m.namespaces["process"] = processNS
+	m.modules["process"] = processNS
+
+	// 保持向后兼容：单独注册子模块
+	if mod, ok := processNS.GetSubModule("process"); ok {
+		m.modules["process/process"] = mod
+	}
+	if mod, ok := processNS.GetSubModule("exec"); ok {
+		m.modules["exec"] = mod
+		m.modules["process/exec"] = mod
+	}
 }
 
 func (m *Manager) GetModule(name string) (types.BuiltinModule, bool) {
@@ -109,7 +132,7 @@ func (m *Manager) RegisterModule(name string, module types.BuiltinModule) {
 
 func (m *Manager) Close() {
 	http.CloseAllHTTPServers()
-	closeAllTCPServers()
+	net.CloseAllTCPServers()
 }
 
 // SetArgv 设置命令行参数
@@ -120,4 +143,9 @@ func (m *Manager) SetArgv(argv []string) {
 // SetStartTime 设置起始时间
 func (m *Manager) SetStartTime(t time.Time) {
 	m.startTime = t
+}
+
+// NewHTTPServerModule 创建 HTTP 服务器模块（向后兼容导出）
+func NewHTTPServerModule(vm *goja.Runtime) *http.HTTPServerModule {
+	return http.NewHTTPServerModule(vm)
 }

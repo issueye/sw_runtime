@@ -1,7 +1,7 @@
 // WebSocket 简单示例
 console.log('=== WebSocket 简单示例 ===\n');
 
-const server = require('httpserver');
+const { server } = require('http');
 const app = server.createServer();
 
 // 提供测试页面

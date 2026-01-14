@@ -1,5 +1,5 @@
 // UDP 服务器示例
-const net = require('net');
+const { net } = require('net');
 
 console.log('=== UDP Server Example ===\n');
 

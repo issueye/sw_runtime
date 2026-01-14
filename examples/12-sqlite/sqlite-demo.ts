@@ -1,5 +1,5 @@
 // SQLite 数据库演示
-const sqlite = require('sqlite');
+const { sqlite } = require('db');
 
 async function sqliteDemo() {
     console.log('=== SQLite 数据库演示 ===');

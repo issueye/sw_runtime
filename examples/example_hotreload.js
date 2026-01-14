@@ -1,13 +1,13 @@
 // 热加载示例脚本
 // 使用命令: sw_runtime run --watch example_hotreload.js
 
-const http = require('httpserver');
+const { server } = require('http');
 
 let requestCount = 0;
 const startTime = new Date();
 
 // 创建HTTP服务器
-const server = http.createServer((req, res) => {
+const app = server.createServer((req, res) => {
   requestCount++;
 
   res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -19,7 +19,7 @@ const server = http.createServer((req, res) => {
   }));
 });
 
-server.listen(3000, () => {
+app.listen(3000, () => {
   console.log(`🚀 Server started at http://localhost:3000`);
   console.log(`👀 Watching for file changes... (修改此文件并保存以触发热重载)`);
   console.log(`📊 Initial request count: ${requestCount}`);

@@ -1,12 +1,12 @@
 // 简单的 WebSocket 客户端测试
 // 连接到公共 WebSocket 测试服务器
 
-const ws = require('websocket');
+const { websocket } = require('net');
 
 console.log('正在连接到 WebSocket 测试服务器...');
 
 // 连接到 echo.websocket.org (公共测试服务器)
-ws.connect('wss://echo.websocket.org/', {
+websocket.connect('wss://echo.websocket.org/', {
     timeout: 10000
 }).then(client => {
     console.log('✅ 已连接到服务器');

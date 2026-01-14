@@ -1,5 +1,5 @@
 // TCP 代理服务器高级示例 - 统计和监控
-const proxy = require('proxy');
+const { proxy } = require('net');
 
 console.log('=== Advanced TCP Proxy Server Demo ===\n');
 

@@ -1,6 +1,6 @@
 // redis-demo.ts - Redis 客户端功能演示
 
-const redis = require('redis');
+const { redis } = require('db');
 
 console.log('=== Redis 客户端功能演示 ===');
 

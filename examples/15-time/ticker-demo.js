@@ -1,5 +1,5 @@
 // Ticker 定时器示例
-const time = require('time');
+const { time } = require('utils');
 
 console.log('=== Ticker Demo ===\n');
 

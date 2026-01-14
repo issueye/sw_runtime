@@ -1,5 +1,5 @@
 // HTTP 代理服务器示例
-const proxy = require('proxy');
+const { proxy } = require('net');
 
 console.log('=== HTTP Proxy Server Demo ===\n');
 

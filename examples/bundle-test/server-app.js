@@ -1,5 +1,5 @@
 // server-app.js - 使用内置模块的应用
-const httpserver = require('httpserver');
+const { server } = require('http');
 const fs = require('fs');
 const utils = require('./utils.js');
 
@@ -10,7 +10,7 @@ console.log('Testing custom module:');
 console.log('  add(10, 20) =', utils.add(10, 20));
 
 // 创建 HTTP 服务器（这些模块应该被排除）
-const app = httpserver.createServer();
+const app = server.createServer();
 
 app.get('/hello', (req, res) => {
     res.send(utils.greet('Server'));

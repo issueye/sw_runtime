@@ -1,10 +1,10 @@
 // WebSocket 客户端示例
-const ws = require('websocket');
+const { websocket } = require('net');
 
 console.log('正在连接到 WebSocket 服务器...');
 
 // 连接到 WebSocket 服务器
-ws.connect('ws://localhost:8080/chat', {
+websocket.connect('ws://localhost:8080/chat', {
     timeout: 5000,
     headers: {
         'User-Agent': 'SW-Runtime-WebSocket-Client'

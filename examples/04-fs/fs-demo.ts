@@ -2,6 +2,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
+import * as os from 'os';
 
 console.log('=== 文件系统功能演示 ===');
 
@@ -132,9 +133,9 @@ setTimeout(() => {
         });
 }, 400);
 
-export { fs, path };
+export { fs, path, os };
 
 // 如果在 CommonJS 环境中运行
 if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { fs, path };
+    module.exports = { fs, path, os };
 }

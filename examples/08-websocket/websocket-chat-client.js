@@ -1,12 +1,12 @@
 // WebSocket 聊天客户端示例
 // 需要先运行 websocket-demo.js 启动服务器
 
-const ws = require('websocket');
+const { websocket } = require('net');
 
 const clientName = 'Client-' + Math.floor(Math.random() * 1000);
 console.log(`${clientName} 正在连接到聊天服务器...`);
 
-ws.connect('ws://localhost:3200/chat').then(client => {
+websocket.connect('ws://localhost:3200/chat').then(client => {
     console.log(`✅ ${clientName} 已连接到聊天室`);
 
     // 监听消息

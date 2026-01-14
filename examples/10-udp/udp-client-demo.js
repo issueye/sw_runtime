@@ -1,5 +1,5 @@
 // UDP 客户端示例
-const net = require('net');
+const { net } = require('net');
 
 console.log('=== UDP Client Example ===\n');
 

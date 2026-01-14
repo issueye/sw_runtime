@@ -1,5 +1,5 @@
-const os = require("os");
-const util = require("util");
+const { os } = require('fs');
+const { util } = require('utils');
 
 console.log("--- OS Module Test ---");
 console.log("Hostname:", os.hostname());

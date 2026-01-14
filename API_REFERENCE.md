@@ -5,22 +5,31 @@
 ## 目录
 
 - [模块系统](#模块系统)
-- [path - 路径模块](#path---路径模块)
-- [fs - 文件系统模块](#fs---文件系统模块)
-- [crypto - 加密模块](#crypto---加密模块)
-- [compression/zlib - 压缩模块](#compressionzlib---压缩模块)
-- [http/client - HTTP 客户端模块](#httpclient---http-客户端模块)
-- [http/server - HTTP 服务器模块](#httpserver---http-服务器模块)
-- [websocket/ws - WebSocket 模块](#websocketws---websocket模块)
+- [命名空间概览](#命名空间概览)
+- [http - HTTP 模块](#http---http-模块)
+  - [http/client - HTTP 客户端](#httpclient---http-客户端)
+  - [http/server - HTTP 服务器](#httpserver---http-服务器)
+- [db - 数据库模块](#db---数据库模块)
+  - [db/redis - Redis 客户端](#dbredis---redis-客户端)
+  - [db/sqlite - SQLite 数据库](#dbsqlite---sqlite-数据库)
+- [utils - 工具模块](#utils---工具模块)
+  - [utils/path - 路径处理](#utilspath---路径处理)
+  - [utils/time - 时间处理](#utilstime---时间处理)
+  - [utils/crypto - 加密模块](#utilscrypto---加密模块)
+  - [utils/compression - 压缩模块](#utilscompression---压缩模块)
+  - [utils/util - 工具函数](#utilsutil---工具函数)
 - [net - 网络模块](#net---网络模块)
-- [proxy - 代理模块](#proxy---代理模块)
-- [redis - Redis 客户端模块](#redis---redis客户端模块)
-- [sqlite - SQLite 数据库模块](#sqlite---sqlite数据库模块)
-- [time - 时间处理模块](#time---时间处理模块)
-- [time - 时间处理模块](#time---时间处理模块)
+  - [net/net - TCP/UDP 网络](#netnet---tcpudp-网络)
+  - [net/websocket - WebSocket](#netwebsocket---websocket)
+  - [net/proxy - 代理模块](#netproxy---代理模块)
+- [fs - 文件系统模块](#fs---文件系统模块)
+  - [fs/fs - 文件操作](#fsfs---文件操作)
+  - [fs/os - 操作系统信息](#fsos---操作系统信息)
+- [config - 配置模块](#config---配置模块)
+  - [config/viper - 配置管理](#configviper---配置管理)
 - [process - 进程模块](#process---进程模块)
-- [process/exec - 进程执行模块](#processexec---进程执行模块)
-- [raft - 分布式一致性模块](#raft---分布式一致性模块)
+  - [process/exec - 进程执行模块](#processexec---进程执行模块)
+  - [process/process - 进程模块](#processprocess---进程模块)
 
 ---
 
@@ -28,337 +37,111 @@
 
 ### require(id: string): any
 
-**功能**: CommonJS 风格的同步模块加载  
+**功能**: CommonJS 风格的同步模块加载
 **参数**:
-
 - `id` (string): 模块标识符，支持相对路径、绝对路径或内置模块名
-  **返回值**: 模块导出的内容  
-  **示例**:
 
+**返回值**: 模块导出的内容
+
+**示例**:
 ```javascript
-const fs = require("fs");
+// 命名空间导入
+const { server } = require('http');
+const { crypto, path } = require('utils');
+const { redis, sqlite } = require('db');
+
+// 子模块导入
+const client = require('http/client');
+const ws = require('net/websocket');
+
+// 相对路径导入
 const utils = require("./utils.js");
 const config = require("../config.json");
 ```
 
 ### import(id: string): Promise<any>
 
-**功能**: ES6 风格的异步模块导入  
+**功能**: ES6 风格的异步模块导入
 **参数**:
-
 - `id` (string): 模块标识符
-  **返回值**: Promise<any> - 解析为模块导出的内容  
-  **示例**:
 
+**返回值**: Promise<any> - 解析为模块导出的内容
+
+**示例**:
 ```javascript
 import("./module.js").then((mod) => console.log(mod));
 ```
 
 ---
 
-## path - 路径模块
+## 命名空间概览
 
-### join(...paths: string[]): string
+SW Runtime 使用命名空间组织内置模块，提供更清晰的模块结构：
 
-**功能**: 连接多个路径片段  
-**参数**: 任意数量的路径字符串  
-**返回值**: 连接后的路径字符串
+| 命名空间 | 子模块 | 说明 |
+|---------|--------|------|
+| `http` | client, server | HTTP 客户端和服务器 |
+| `db` | redis, sqlite | Redis 和 SQLite 数据库 |
+| `utils` | path, time, crypto, compression, util | 工具函数集合 |
+| `net` | net, proxy, websocket | 网络相关功能 |
+| `fs` | fs, os | 文件系统和操作系统 |
+| `config` | viper | 配置管理 |
+| `process` | process, exec | 进程管理和命令执行 |
 
-### resolve(...paths: string[]): string
-
-**功能**: 将路径解析为绝对路径  
-**参数**: 任意数量的路径字符串  
-**返回值**: 绝对路径字符串
-
-### dirname(path: string): string
-
-**功能**: 获取路径的目录部分  
-**参数**: `path` (string) - 文件路径  
-**返回值**: 目录路径
-
-### basename(path: string, ext?: string): string
-
-**功能**: 获取路径的基础文件名  
-**参数**:
-
-- `path` (string) - 文件路径
-- `ext` (string, 可选) - 要移除的扩展名
-  **返回值**: 文件名
-
-### extname(path: string): string
-
-**功能**: 获取路径的扩展名  
-**参数**: `path` (string) - 文件路径  
-**返回值**: 扩展名（包含点）
-
-### isAbsolute(path: string): boolean
-
-**功能**: 判断路径是否为绝对路径  
-**参数**: `path` (string) - 文件路径  
-**返回值**: true/false
-
-### normalize(path: string): string
-
-**功能**: 规范化路径  
-**参数**: `path` (string) - 文件路径  
-**返回值**: 规范化后的路径
-
-### relative(from: string, to: string): string
-
-**功能**: 计算从 from 到 to 的相对路径  
-**参数**:
-
-- `from` (string) - 起始路径
-- `to` (string) - 目标路径
-  **返回值**: 相对路径
-
-### 常量
-
-- `sep`: 路径分隔符
-- `delimiter`: 路径定界符
+**向后兼容**: 旧的模块名仍然可用（如 `require('httpserver')` 等效于 `require('http').server`）
 
 ---
 
-## fs - 文件系统模块
+## http - HTTP 模块
 
-### 同步方法
-
-#### readFileSync(path: string, encoding?: string): string
-
-**功能**: 同步读取文件  
-**参数**:
-
-- `path` (string) - 文件路径
-- `encoding` (string, 可选) - 编码格式，默认 'utf8'
-  **返回值**: 文件内容字符串
-
-#### writeFileSync(path: string, data: string, encoding?: string): void
-
-**功能**: 同步写入文件  
-**参数**:
-
-- `path` (string) - 文件路径
-- `data` (string) - 写入的数据
-- `encoding` (string, 可选) - 编码格式，默认 'utf8'
-
-#### existsSync(path: string): boolean
-
-**功能**: 检查文件或目录是否存在  
-**参数**: `path` (string) - 文件路径  
-**返回值**: true/false
-
-#### statSync(path: string): object
-
-**功能**: 获取文件或目录信息  
-**参数**: `path` (string) - 文件路径  
-**返回值**: 包含 `isFile()`, `isDirectory()`, `size`, `modTime` 等方法和属性的对象
-
-#### mkdirSync(path: string, recursive?: boolean): void
-
-**功能**: 同步创建目录  
-**参数**:
-
-- `path` (string) - 目录路径
-- `recursive` (boolean, 可选) - 是否递归创建
-
-#### readdirSync(path: string): string[]
-
-**功能**: 同步读取目录内容  
-**参数**: `path` (string) - 目录路径  
-**返回值**: 文件名数组
-
-#### unlinkSync(path: string): void
-
-**功能**: 同步删除文件  
-**参数**: `path` (string) - 文件路径
-
-#### rmdirSync(path: string): void
-
-**功能**: 同步删除目录  
-**参数**: `path` (string) - 目录路径
-
-#### copyFileSync(src: string, dest: string): void
-
-**功能**: 同步复制文件  
-**参数**:
-
-- `src` (string) - 源文件路径
-- `dest` (string) - 目标文件路径
-
-#### renameSync(oldPath: string, newPath: string): void
-
-**功能**: 同步重命名或移动文件  
-**参数**:
-
-- `oldPath` (string) - 原路径
-- `newPath` (string) - 新路径
-
-### 异步方法（Promise）
-
-所有同步方法都有对应的异步版本，去掉 `Sync` 后缀，返回 Promise：
-
-- `readFile(path, encoding?): Promise<string>`
-- `writeFile(path, data, encoding?): Promise<void>`
-- `exists(path): Promise<boolean>`
-- `stat(path): Promise<object>`
-- `mkdir(path, recursive?): Promise<void>`
-- `readdir(path): Promise<string[]>`
-- `unlink(path): Promise<void>`
-- `rmdir(path): Promise<void>`
-- `copyFile(src, dest): Promise<void>`
-- `rename(oldPath, newPath): Promise<void>`
+```javascript
+const { client, server } = require('http');
+// 或分别导入
+const client = require('http/client');
+const server = require('http/server');
+```
 
 ---
 
-## crypto - 加密模块
+### http/client - HTTP 客户端
 
-### 哈希函数
-
-#### md5(data: string): string
-
-**功能**: 计算 MD5 哈希值  
-**参数**: `data` (string) - 输入数据  
-**返回值**: 十六进制哈希字符串
-
-#### sha1(data: string): string
-
-**功能**: 计算 SHA1 哈希值  
-**参数**: `data` (string) - 输入数据  
-**返回值**: 十六进制哈希字符串
-
-#### sha256(data: string): string
-
-**功能**: 计算 SHA256 哈希值  
-**参数**: `data` (string) - 输入数据  
-**返回值**: 十六进制哈希字符串
-
-#### sha512(data: string): string
-
-**功能**: 计算 SHA512 哈希值  
-**参数**: `data` (string) - 输入数据  
-**返回值**: 十六进制哈希字符串
-
-### 编解码
-
-#### base64Encode(data: string): string
-
-**功能**: Base64 编码  
-**参数**: `data` (string) - 原始数据  
-**返回值**: Base64 编码字符串
-
-#### base64Decode(data: string): string
-
-**功能**: Base64 解码  
-**参数**: `data` (string) - Base64 编码字符串  
-**返回值**: 解码后的原始数据
-
-#### hexEncode(data: string): string
-
-**功能**: 十六进制编码  
-**参数**: `data` (string) - 原始数据  
-**返回值**: 十六进制字符串
-
-#### hexDecode(data: string): string
-
-**功能**: 十六进制解码  
-**参数**: `data` (string) - 十六进制字符串  
-**返回值**: 解码后的原始数据
-
-### 加密
-
-#### aesEncrypt(data: string, key: string): string
-
-**功能**: AES-256-GCM 加密  
-**参数**:
-
-- `data` (string) - 待加密数据
-- `key` (string) - 加密密钥
-  **返回值**: Base64 编码的加密数据
-
-#### aesDecrypt(data: string, key: string): string
-
-**功能**: AES-256-GCM 解密  
-**参数**:
-
-- `data` (string) - Base64 编码的加密数据
-- `key` (string) - 解密密钥
-  **返回值**: 解密后的原始数据
-
-#### randomBytes(size?: number): string
-
-**功能**: 生成安全随机字节  
-**参数**: `size` (number, 可选) - 字节数，默认 16  
-**返回值**: 十六进制编码的随机字节
-
----
-
-## compression/zlib - 压缩模块
-
-### gzipCompress(data: string): string
-
-**功能**: Gzip 压缩  
-**参数**: `data` (string) - 原始数据  
-**返回值**: Base64 编码的压缩数据
-
-### gzipDecompress(data: string): string
-
-**功能**: Gzip 解压  
-**参数**: `data` (string) - Base64 编码的压缩数据  
-**返回值**: 解压后的原始数据
-
-### zlibCompress(data: string): string
-
-**功能**: Zlib 压缩  
-**参数**: `data` (string) - 原始数据  
-**返回值**: Base64 编码的压缩数据
-
-### zlibDecompress(data: string): string
-
-**功能**: Zlib 解压  
-**参数**: `data` (string) - Base64 编码的压缩数据  
-**返回值**: 解压后的原始数据
-
----
-
-## http/client - HTTP 客户端模块
-
-### HTTP 方法
+#### HTTP 方法
 
 所有 HTTP 方法返回 Promise<HTTPResponse>
 
-#### get(url: string, config?: RequestConfig): Promise<HTTPResponse>
+##### get(url: string, config?: RequestConfig): Promise<HTTPResponse>
 
 **功能**: 发送 GET 请求
 
-#### post(url: string, config?: RequestConfig): Promise<HTTPResponse>
+##### post(url: string, config?: RequestConfig): Promise<HTTPResponse>
 
 **功能**: 发送 POST 请求
 
-#### put(url: string, config?: RequestConfig): Promise<HTTPResponse>
+##### put(url: string, config?: RequestConfig): Promise<HTTPResponse>
 
 **功能**: 发送 PUT 请求
 
-#### delete(url: string, config?: RequestConfig): Promise<HTTPResponse>
+##### delete(url: string, config?: RequestConfig): Promise<HTTPResponse>
 
 **功能**: 发送 DELETE 请求
 
-#### patch(url: string, config?: RequestConfig): Promise<HTTPResponse>
+##### patch(url: string, config?: RequestConfig): Promise<HTTPResponse>
 
 **功能**: 发送 PATCH 请求
 
-#### head(url: string, config?: RequestConfig): Promise<HTTPResponse>
+##### head(url: string, config?: RequestConfig): Promise<HTTPResponse>
 
 **功能**: 发送 HEAD 请求
 
-#### options(url: string, config?: RequestConfig): Promise<HTTPResponse>
+##### options(url: string, config?: RequestConfig): Promise<HTTPResponse>
 
 **功能**: 发送 OPTIONS 请求
 
-#### request(url: string, config?: RequestConfig): Promise<HTTPResponse>
+##### request(url: string, config?: RequestConfig): Promise<HTTPResponse>
 
 **功能**: 通用请求方法
 
-### RequestConfig 对象
+#### RequestConfig 对象
 
 ```typescript
 {
@@ -380,7 +163,7 @@ import("./module.js").then((mod) => console.log(mod));
 }
 ```
 
-### HTTPResponse 对象
+#### HTTPResponse 对象
 
 ```typescript
 {
@@ -393,44 +176,33 @@ import("./module.js").then((mod) => console.log(mod));
 }
 ```
 
-### createClient(config?: {timeout?: number}): HTTPClient
+#### createClient(config?: {timeout?: number}): HTTPClient
 
-**功能**: 创建自定义 HTTP 客户端实例  
-**参数**: 可选配置对象  
+**功能**: 创建自定义 HTTP 客户端实例
+**参数**: 可选配置对象
 **返回值**: 具有所有 HTTP 方法的客户端对象
 
-### setRequestInterceptor(interceptor: function): void
+#### setRequestInterceptor(interceptor: function): void
 
-**功能**: 设置全局请求拦截器  
-**参数**: `interceptor` (function) - 拦截器函数 `(config) => config`  
+**功能**: 设置全局请求拦截器
+**参数**: `interceptor` (function) - 拦截器函数 `(config) => config`
+
 **示例**:
-
 ```javascript
-const http = require("http/client");
-http.setRequestInterceptor((config) => {
+const { client } = require('http');
+client.setRequestInterceptor((config) => {
   // 所有请求自动添加 token
   config.headers["Authorization"] = "Bearer " + token;
   return config;
 });
 ```
 
-### setResponseInterceptor(interceptor: function): void
+#### setResponseInterceptor(interceptor: function): void
 
-**功能**: 设置全局响应拦截器  
-**参数**: `interceptor` (function) - 拦截器函数 `(response) => response`  
-**示例**:
+**功能**: 设置全局响应拦截器
+**参数**: `interceptor` (function) - 拦截器函数 `(response) => response`
 
-```javascript
-http.setResponseInterceptor((response) => {
-  // 统一处理响应数据
-  if (response.data.code === 0) {
-    response.data = response.data.data;
-  }
-  return response;
-});
-```
-
-### STATUS_CODES 常量
+#### STATUS_CODES 常量
 
 ```javascript
 {
@@ -447,89 +219,88 @@ http.setResponseInterceptor((response) => {
 
 ---
 
-## http/server - HTTP 服务器模块
+### http/server - HTTP 服务器模块
 
-### createServer(): HTTPServer
+#### createServer(): HTTPServer
 
-**功能**: 创建 HTTP 服务器实例  
+**功能**: 创建 HTTP 服务器实例
 **返回值**: HTTPServer 对象
 
-### HTTPServer 对象方法
+#### HTTPServer 对象方法
 
-#### listen(port: string|number, callback?: function): Promise<string>
+##### listen(port: string|number, callback?: function): Promise<string>
 
-**功能**: 启动 HTTP 服务器监听指定端口  
+**功能**: 启动 HTTP 服务器监听指定端口
 **参数**:
-
 - `port` (string|number) - 端口号
 - `callback` (function, 可选) - 启动成功回调
-  **返回值**: Promise - 解析为启动成功消息
 
-#### listenTLS(port: string|number, certFile: string, keyFile: string, callback?: function): Promise<string>
+**返回值**: Promise - 解析为启动成功消息
 
-**功能**: 启动 HTTPS 服务器监听指定端口  
+##### listenTLS(port: string|number, certFile: string, keyFile: string, callback?: function): Promise<string>
+
+**功能**: 启动 HTTPS 服务器监听指定端口
 **参数**:
-
 - `port` (string|number) - 端口号
 - `certFile` (string) - SSL 证书文件路径（.crt 或 .pem）
 - `keyFile` (string) - SSL 私钥文件路径（.key）
 - `callback` (function, 可选) - 启动成功回调
-  **返回值**: Promise - 解析为启动成功消息  
-  **示例**:
 
+**返回值**: Promise - 解析为启动成功消息
+
+**示例**:
 ```javascript
-app
-  .listenTLS("8443", "./certs/server.crt", "./certs/server.key")
+const { server } = require('http');
+const app = server.createServer();
+
+app.listenTLS("8443", "./certs/server.crt", "./certs/server.key")
   .then(() => console.log("HTTPS Server running"));
 ```
 
-#### use(middleware: function): void
+##### use(middleware: function): void
 
-**功能**: 添加中间件  
+**功能**: 添加中间件
 **参数**: `middleware` (function) - 中间件函数 `(req, res, next) => {}`
 
-#### get(path: string, handler: function): void
+##### get(path: string, handler: function): void
 
-**功能**: 添加 GET 路由  
+**功能**: 添加 GET 路由
 **参数**:
-
 - `path` (string) - 路由路径
 - `handler` (function) - 请求处理函数 `(req, res) => {}`
 
-#### post(path: string, handler: function): void
+##### post(path: string, handler: function): void
 
 **功能**: 添加 POST 路由
 
-#### put(path: string, handler: function): void
+##### put(path: string, handler: function): void
 
 **功能**: 添加 PUT 路由
 
-#### delete(path: string, handler: function): void
+##### delete(path: string, handler: function): void
 
 **功能**: 添加 DELETE 路由
 
-#### static(directory: string, urlPath?: string): void
+##### static(directory: string, urlPath?: string): void
 
-**功能**: 设置静态文件服务  
+**功能**: 设置静态文件服务
 **参数**:
-
 - `directory` (string) - 静态文件目录
 - `urlPath` (string, 可选) - URL 路径前缀，默认 '/'
 
-#### ws(path: string, handler: function): void
+##### ws(path: string, handler: function): void
 
-**功能**: 添加 WebSocket 路由  
+**功能**: 添加 WebSocket 路由
 **参数**:
-
 - `path` (string) - WebSocket 路由路径
 - `handler` (function) - WebSocket 处理函数 `(ws) => {}`
 
-#### close(): Promise<void>
+##### close(): Promise<void>
 
-**功能**: 关闭服务器  
+**功能**: 关闭服务器
 **返回值**: Promise
 
-### Request 对象（req）
+#### Request 对象（req）
 
 ```typescript
 {
@@ -539,934 +310,567 @@ app
   headers: object,         // 请求头
   query: object,           // 查询参数
   body: string,            // 原始请求体
-  json: any               // 自动解析的 JSON 数据
+  json: any                // 自动解析的 JSON 数据
 }
 ```
 
-### Response 对象（res）
+#### Response 对象（res）
 
-#### status(code: number): Response
+##### status(code: number): Response
 
-**功能**: 设置响应状态码  
-**参数**: `code` (number) - HTTP 状态码  
+**功能**: 设置响应状态码
+**参数**: `code` (number) - HTTP 状态码
 **返回值**: Response 对象（链式调用）
 
-#### header(name: string, value: string): Response
+##### header(name: string, value: string): Response
 
-**功能**: 设置响应头  
+**功能**: 设置响应头
 **参数**:
-
 - `name` (string) - 响应头名称
 - `value` (string) - 响应头值
-  **返回值**: Response 对象（链式调用）
 
-#### send(data: string): Response
+**返回值**: Response 对象（链式调用）
 
-**功能**: 发送文本响应  
+##### send(data: string): Response
+
+**功能**: 发送文本响应
 **参数**: `data` (string) - 响应内容
 
-#### json(data: any): Response
+##### json(data: any): Response
 
-**功能**: 发送 JSON 响应  
+**功能**: 发送 JSON 响应
 **参数**: `data` (any) - 响应数据（自动序列化）
 
-#### html(data: string): Response
+##### html(data: string): Response
 
-**功能**: 发送 HTML 响应  
+**功能**: 发送 HTML 响应
 **参数**: `data` (string) - HTML 内容
 
-#### sendFile(path: string): Response
+##### sendFile(path: string): Response
 
-**功能**: 发送文件（自动检测 MIME 类型）  
+**功能**: 发送文件（自动检测 MIME 类型）
 **参数**: `path` (string) - 文件路径
 
-#### download(path: string, filename?: string): Response
+##### download(path: string, filename?: string): Response
 
-**功能**: 发送文件下载响应  
+**功能**: 发送文件下载响应
 **参数**:
-
 - `path` (string) - 文件路径
 - `filename` (string, 可选) - 下载文件名
 
-#### redirect(url: string, code?: number): Response
+##### redirect(url: string, code?: number): Response
 
-**功能**: 重定向  
+**功能**: 重定向
 **参数**:
-
 - `url` (string) - 重定向 URL
 - `code` (number, 可选) - 状态码，默认 302
 
-### WebSocket 对象（ws）
+#### WebSocket 对象（ws）
 
-#### send(message: string): void
+##### send(message: string): void
 
-**功能**: 发送文本消息  
+**功能**: 发送文本消息
 **参数**: `message` (string) - 消息内容
 
-#### sendJSON(data: any): void
+##### sendJSON(data: any): void
 
-**功能**: 发送 JSON 消息  
+**功能**: 发送 JSON 消息
 **参数**: `data` (any) - 数据对象
 
-#### on(event: string, handler: function): void
+##### on(event: string, handler: function): void
 
-**功能**: 监听事件  
+**功能**: 监听事件
 **参数**:
-
 - `event` (string) - 事件名称（'message', 'close', 'error'）
 - `handler` (function) - 事件处理函数
 
-#### close(): void
+##### close(): void
 
 **功能**: 关闭连接
 
 ---
 
-## websocket/ws - WebSocket 模块
-
-### connect(url: string, options?: ConnectOptions): Promise<WebSocketClient>
-
-**功能**: 连接到 WebSocket 服务器  
-**参数**:
-
-- `url` (string) - WebSocket URL（ws:// 或 wss://）
-- `options` (object, 可选) - 连接选项
-  **返回值**: Promise<WebSocketClient>
-
-### ConnectOptions 对象
-
-```typescript
-{
-  timeout?: number,        // 连接超时（毫秒），默认 10000
-  headers?: object,        // 自定义 HTTP 请求头
-  protocols?: string[]     // WebSocket 子协议
-}
-```
-
-### WebSocketClient 对象方法
-
-#### send(message: string): void
-
-**功能**: 发送文本消息  
-**参数**: `message` (string) - 消息内容
-
-#### sendJSON(data: any): void
-
-**功能**: 发送 JSON 消息  
-**参数**: `data` (any) - 数据对象（自动序列化）
-
-#### sendBinary(data: ArrayBuffer|Uint8Array): void
-
-**功能**: 发送二进制消息  
-**参数**: `data` - 二进制数据
-
-#### ping(data?: string): void
-
-**功能**: 发送 ping 帧  
-**参数**: `data` (string, 可选) - ping 数据
-
-#### close(code?: number, reason?: string): void
-
-**功能**: 关闭连接  
-**参数**:
-
-- `code` (number, 可选) - 关闭代码
-- `reason` (string, 可选) - 关闭原因
-
-#### isClosed(): boolean
-
-**功能**: 检查连接是否已关闭  
-**返回值**: true/false
-
-#### on(event: string, handler: function): void
-
-**功能**: 监听事件  
-**参数**:
-
-- `event` (string) - 事件名称
-- `handler` (function) - 事件处理函数
-
-### 支持的事件
-
-- `'message'`: 收到消息 - `handler(data: string)`
-- `'close'`: 连接关闭 - `handler()`
-- `'error'`: 发生错误 - `handler(error: {message: string})`
-- `'pong'`: 收到 pong 响应 - `handler(data: string)`
-
----
-
-## net - 网络模块
-
-### TCP 功能
-
-#### createTCPServer(): TCPServer
-
-**功能**: 创建 TCP 服务器实例  
-**返回值**: TCPServer 对象
-
-#### connectTCP(address: string, options?: ConnectOptions): Promise<TCPSocket>
-
-**功能**: 连接到 TCP 服务器  
-**参数**:
-
-- `address` (string) - 服务器地址，格式为 "host:port"
-- `options` (object, 可选) - 连接选项
-  **返回值**: Promise<TCPSocket>
-
-**ConnectOptions 对象**:
-
-```typescript
-{
-  timeout?: number         // 连接超时（毫秒），默认 10000
-}
-```
-
-### TCPServer 对象方法
-
-#### listen(port: string|number, callback?: function): Promise<string>
-
-**功能**: 启动 TCP 服务器监听指定端口  
-**参数**:
-
-- `port` (string|number) - 端口号
-- `callback` (function, 可选) - 启动成功回调
-  **返回值**: Promise<string> - 解析为启动成功消息
-
-#### on(event: string, handler: function): TCPServer
-
-**功能**: 注册事件处理器  
-**参数**:
-
-- `event` (string) - 事件名称
-- `handler` (function) - 事件处理函数
-  **返回值**: TCPServer 对象（链式调用）
-
-**支持的事件**:
-
-- `'connection'`: 新客户端连接 - `handler(socket: TCPSocket)`
-
-#### close(): Promise<void>
-
-**功能**: 关闭 TCP 服务器  
-**返回值**: Promise<void>
-
-### TCPSocket 对象
-
-#### 属性
-
-- `remoteAddress` (string): 远程地址
-- `localAddress` (string): 本地地址
-
-#### write(data: string): Promise<boolean>
-
-**功能**: 发送数据  
-**参数**: `data` (string) - 要发送的数据  
-**返回值**: Promise<boolean>
-
-#### on(event: string, handler: function): TCPSocket
-
-**功能**: 注册事件处理器  
-**参数**:
-
-- `event` (string) - 事件名称
-- `handler` (function) - 事件处理函数
-
-**支持的事件**:
-
-- `'data'`: 收到数据 - `handler(data: string)`
-- `'close'`: 连接关闭 - `handler()`
-- `'error'`: 发生错误 - `handler(error: {message: string})`
-
-#### close(): void
-
-**功能**: 关闭连接
-
-#### setTimeout(timeout: number): TCPSocket
-
-**功能**: 设置连接超时  
-**参数**: `timeout` (number) - 超时时间（毫秒）  
-**返回值**: TCPSocket 对象（链式调用）
-
-### UDP 功能
-
-#### createUDPSocket(type?: string): UDPSocket
-
-**功能**: 创建 UDP 套接字  
-**参数**: `type` (string, 可选) - 套接字类型，'udp4' 或 'udp6'，默认 'udp4'  
-**返回值**: UDPSocket 对象
-
-### UDPSocket 对象方法
-
-#### bind(port: string, host?: string, callback?: function): Promise<string>
-
-**功能**: 绑定 UDP 套接字到指定端口  
-**参数**:
-
-- `port` (string) - 端口号
-- `host` (string, 可选) - 主机地址，默认 '0.0.0.0'
-- `callback` (function, 可选) - 绑定成功回调
-  **返回值**: Promise<string>
-
-#### send(data: string, port: string, host: string, callback?: function): Promise<boolean>
-
-**功能**: 发送 UDP 数据包  
-**参数**:
-
-- `data` (string) - 要发送的数据
-- `port` (string) - 目标端口
-- `host` (string) - 目标主机
-- `callback` (function, 可选) - 发送成功回调
-  **返回值**: Promise<boolean>
-
-#### on(event: string, handler: function): UDPSocket
-
-**功能**: 注册事件处理器  
-**参数**:
-
-- `event` (string) - 事件名称
-- `handler` (function) - 事件处理函数
-
-**支持的事件**:
-
-- `'message'`: 收到消息 - `handler(msg: string, rinfo: {address: string, port: number, data: string})`
-- `'close'`: 套接字关闭 - `handler()`
-- `'error'`: 发生错误 - `handler(error: {message: string})`
-
-#### close(): void
-
-**功能**: 关闭 UDP 套接字
-
-#### address(): object|undefined
-
-**功能**: 获取套接字地址信息  
-**返回值**: 地址对象 `{address: string, port: number, family: string}` 或 undefined
-
-### 示例代码
-
-#### TCP 服务器示例
+## db - 数据库模块
 
 ```javascript
-const net = require("net");
-const server = net.createTCPServer();
-
-server.on("connection", (socket) => {
-  console.log("新客户端连接:", socket.remoteAddress);
-
-  socket.write("欢迎使用 TCP 服务器!\n");
-
-  socket.on("data", (data) => {
-    console.log("收到数据:", data);
-    socket.write("回显: " + data);
-  });
-
-  socket.on("close", () => {
-    console.log("客户端断开连接");
-  });
-});
-
-server.listen("8080").then(() => {
-  console.log("TCP 服务器监听端口 8080");
-});
-```
-
-#### TCP 客户端示例
-
-```javascript
-const net = require("net");
-
-net
-  .connectTCP("localhost:8080", { timeout: 5000 })
-  .then((socket) => {
-    console.log("已连接到服务器");
-
-    socket.on("data", (data) => {
-      console.log("收到:", data);
-    });
-
-    socket.write("Hello Server!\n");
-  })
-  .catch((err) => {
-    console.error("连接失败:", err.message);
-  });
-```
-
-#### UDP 服务器示例
-
-```javascript
-const net = require("net");
-
-const socket = net.createUDPSocket("udp4");
-
-socket.on("message", (msg, rinfo) => {
-  console.log("收到来自", rinfo.address + ":" + rinfo.port, "的消息:", msg);
-
-  // 回复客户端
-  socket.send("回复: " + msg, rinfo.port.toString(), rinfo.address);
-});
-
-socket.bind("9090", "0.0.0.0").then(() => {
-  console.log("UDP 服务器监听端口 9090");
-});
-```
-
-#### UDP 客户端示例
-
-```javascript
-const net = require("net");
-
-const socket = net.createUDPSocket("udp4");
-
-// 发送消息
-socket
-  .send("Hello UDP Server!\n", "9090", "localhost")
-  .then(() => {
-    console.log("消息已发送");
-  })
-  .catch((err) => {
-    console.error("发送失败:", err.message);
-  });
-
-// 绑定本地端口以接收回复
-socket.bind("0", "0.0.0.0").then(() => {
-  socket.on("message", (msg, rinfo) => {
-    console.log("收到回复:", msg);
-  });
-});
+const { redis, sqlite } = require('db');
+// 或分别导入
+const redis = require('db/redis');
+const sqlite = require('db/sqlite');
 ```
 
 ---
 
-## proxy - 代理模块
+### db/redis - Redis 客户端
 
-### createHTTPProxy(targetURL: string): HTTPProxy
+#### createClient(config?: RedisConfig): RedisClient
 
-**功能**: 创建 HTTP/HTTPS 代理服务器  
-**参数**:
-
-- `targetURL` (string) - 目标服务器 URL（如 'https://api.example.com'）
-  **返回值**: HTTPProxy 对象  
-  **示例**:
-
-```javascript
-const proxy = require("proxy");
-const httpProxy = proxy.createHTTPProxy("https://httpbin.org");
-```
-
-### createTCPProxy(target: string): TCPProxy
-
-**功能**: 创建 TCP 代理服务器  
-**参数**:
-
-- `target` (string) - 目标服务器地址 (如 'localhost:6379')
-  **返回值**: TCPProxy 对象  
-  **示例**:
-
-```javascript
-const proxy = require("proxy");
-const tcpProxy = proxy.createTCPProxy("localhost:6379");
-```
-
-### HTTPProxy 对象方法
-
-#### on(event: string, handler: function): void
-
-**功能**: 注册事件处理器  
-**参数**:
-
-- `event` (string) - 事件名称
-- `handler` (function) - 事件处理函数
-
-**支持的事件**:
-
-- `'request'`: 接收到请求 - `handler(req: {method: string, url: string, path: string, host: string, remoteAddr: string, headers: object})`
-- `'response'`: 收到响应 - `handler(resp: {status: number, statusText: string, headers: object})`
-- `'error'`: 代理错误 - `handler(err: {message: string, url: string})`
-
-#### listen(port: string|number, callback?: function): Promise<string>
-
-**功能**: 启动 HTTP 代理服务器  
-**参数**:
-
-- `port` (string|number) - 监听端口
-- `callback` (function, 可选) - 启动成功回调
-  **返回值**: Promise<string> - 解析为启动消息
-
-#### close(): Promise<string>
-
-**功能**: 关闭 HTTP 代理服务器  
-**返回值**: Promise<string>
-
-### TCPProxy 对象方法
-
-#### on(event: string, handler: function): void
-
-**功能**: 注册事件处理器  
-**参数**:
-
-- `event` (string) - 事件名称
-- `handler` (function) - 事件处理函数
-
-**支持的事件**:
-
-- `'connection'`: 新连接建立 - `handler(conn: {remoteAddr: string, target: string})`
-- `'data'`: 数据传输 - `handler(data: {direction: string, bytes: number})`
-- `'close'`: 连接关闭 - `handler()`
-- `'error'`: 代理错误 - `handler(err: {message: string, direction?: string})`
-
-#### listen(port: string|number, callback?: function): Promise<string>
-
-**功能**: 启动 TCP 代理服务器  
-**参数**:
-
-- `port` (string|number) - 监听端口
-- `callback` (function, 可选) - 启动成功回调
-  **返回值**: Promise<string> - 解析为启动消息
-
-#### close(): Promise<string>
-
-**功能**: 关闭 TCP 代理服务器  
-**返回值**: Promise<string>
-
-### 示例代码
-
-#### HTTP 代理示例
-
-```javascript
-const proxy = require("proxy");
-
-// 创建 HTTP 代理
-const httpProxy = proxy.createHTTPProxy("https://api.github.com");
-
-// 监听请求
-httpProxy.on("request", (req) => {
-  console.log(`${req.method} ${req.path}`);
-});
-
-// 监听响应
-httpProxy.on("response", (resp) => {
-  console.log(`Status: ${resp.status}`);
-});
-
-// 监听错误
-httpProxy.on("error", (err) => {
-  console.error("Proxy error:", err.message);
-});
-
-// 启动代理
-httpProxy.listen("8080").then(() => {
-  console.log("HTTP Proxy running on port 8080");
-});
-```
-
-#### TCP 代理示例
-
-```javascript
-const proxy = require("proxy");
-
-// 创建 TCP 代理
-const tcpProxy = proxy.createTCPProxy("localhost:6379");
-
-// 监听连接
-tcpProxy.on("connection", (conn) => {
-  console.log("New connection:", conn.remoteAddr);
-});
-
-// 监听数据传输
-tcpProxy.on("data", (data) => {
-  console.log(`${data.direction}: ${data.bytes} bytes`);
-});
-
-// 监听关闭
-tcpProxy.on("close", () => {
-  console.log("Connection closed");
-});
-
-// 启动代理
-tcpProxy.listen("6380").then(() => {
-  console.log("TCP Proxy running on port 6380");
-});
-```
-
----
-
-## redis - Redis 客户端模块
-
-### createClient(config?: RedisConfig): RedisClient
-
-**功能**: 创建 Redis 客户端  
-**参数**: 可选配置对象  
+**功能**: 创建 Redis 客户端
+**参数**: 可选配置对象
 **返回值**: RedisClient 对象
 
-### RedisConfig 对象
+#### RedisConfig 对象
 
 ```typescript
 {
   host?: string,           // 主机地址，默认 'localhost'
   port?: number,           // 端口，默认 6379
   password?: string,       // 密码
-  db?: number             // 数据库编号，默认 0
+  db?: number              // 数据库编号，默认 0
 }
 ```
 
-### RedisClient 对象方法（所有方法返回 Promise）
+#### RedisClient 对象方法（所有方法返回 Promise）
 
-#### 字符串操作
+##### 字符串操作
 
-##### set(key: string, value: string, expiration?: number): Promise<string>
+###### set(key: string, value: string, expiration?: number): Promise<string>
 
-**功能**: 设置键值  
+**功能**: 设置键值
 **参数**:
-
 - `key` (string) - 键名
 - `value` (string) - 值
 - `expiration` (number, 可选) - 过期时间（秒）
-  **返回值**: Promise<string> - 'OK'
 
-##### get(key: string): Promise<string|null>
+**返回值**: Promise<string> - 'OK'
 
-**功能**: 获取键值  
-**参数**: `key` (string) - 键名  
+###### get(key: string): Promise<string|null>
+
+**功能**: 获取键值
+**参数**: `key` (string) - 键名
 **返回值**: Promise<string|null>
 
-##### setJSON(key: string, value: any, expiration?: number): Promise<string>
+###### setJSON(key: string, value: any, expiration?: number): Promise<string>
 
-**功能**: 设置 JSON 数据  
+**功能**: 设置 JSON 数据
 **参数**:
-
 - `key` (string) - 键名
 - `value` (any) - 数据对象（自动序列化）
 - `expiration` (number, 可选) - 过期时间（秒）
 
-##### getJSON(key: string): Promise<any|null>
+###### getJSON(key: string): Promise<any|null>
 
-**功能**: 获取 JSON 数据  
-**参数**: `key` (string) - 键名  
+**功能**: 获取 JSON 数据
+**参数**: `key` (string) - 键名
 **返回值**: Promise<any|null> - 自动反序列化的对象
 
-##### del(key: string): Promise<number>
+###### del(key: string): Promise<number>
 
-**功能**: 删除键  
-**参数**: `key` (string) - 键名  
+**功能**: 删除键
+**参数**: `key` (string) - 键名
 **返回值**: Promise<number> - 删除的键数量
 
-##### exists(key: string): Promise<boolean>
+###### exists(key: string): Promise<boolean>
 
-**功能**: 检查键是否存在  
-**参数**: `key` (string) - 键名  
+**功能**: 检查键是否存在
+**参数**: `key` (string) - 键名
 **返回值**: Promise<boolean>
 
-##### expire(key: string, seconds: number): Promise<boolean>
+###### expire(key: string, seconds: number): Promise<boolean>
 
-**功能**: 设置过期时间  
+**功能**: 设置过期时间
 **参数**:
-
 - `key` (string) - 键名
 - `seconds` (number) - 过期时间（秒）
-  **返回值**: Promise<boolean>
 
-##### ttl(key: string): Promise<number>
+**返回值**: Promise<boolean>
 
-**功能**: 获取剩余生存时间  
-**参数**: `key` (string) - 键名  
+###### ttl(key: string): Promise<number>
+
+**功能**: 获取剩余生存时间
+**参数**: `key` (string) - 键名
 **返回值**: Promise<number> - 剩余秒数，-1 表示永不过期，-2 表示不存在
 
-#### 哈希操作
+##### 哈希操作
 
-##### hset(key: string, field: string, value: string): Promise<number>
+###### hset(key: string, field: string, value: string): Promise<number>
 
 **功能**: 设置哈希字段
 
-##### hget(key: string, field: string): Promise<string|null>
+###### hget(key: string, field: string): Promise<string|null>
 
 **功能**: 获取哈希字段
 
-##### hgetall(key: string): Promise<object>
+###### hgetall(key: string): Promise<object>
 
-**功能**: 获取所有哈希字段  
+**功能**: 获取所有哈希字段
 **返回值**: Promise<object> - 字段-值对象
 
-##### hdel(key: string, field: string): Promise<number>
+###### hdel(key: string, field: string): Promise<number>
 
 **功能**: 删除哈希字段
 
-##### hexists(key: string, field: string): Promise<boolean>
+###### hexists(key: string, field: string): Promise<boolean>
 
 **功能**: 检查哈希字段是否存在
 
-##### hkeys(key: string): Promise<string[]>
+###### hkeys(key: string): Promise<string[]>
 
 **功能**: 获取所有哈希字段名
 
-##### hvals(key: string): Promise<string[]>
+###### hvals(key: string): Promise<string[]>
 
 **功能**: 获取所有哈希字段值
 
-#### 列表操作
+##### 列表操作
 
-##### lpush(key: string, ...values: string[]): Promise<number>
+###### lpush(key: string, ...values: string[]): Promise<number>
 
-**功能**: 从左侧推入元素  
+**功能**: 从左侧推入元素
 **返回值**: Promise<number> - 列表长度
 
-##### rpush(key: string, ...values: string[]): Promise<number>
+###### rpush(key: string, ...values: string[]): Promise<number>
 
 **功能**: 从右侧推入元素
 
-##### lpop(key: string): Promise<string|null>
+###### lpop(key: string): Promise<string|null>
 
 **功能**: 从左侧弹出元素
 
-##### rpop(key: string): Promise<string|null>
+###### rpop(key: string): Promise<string|null>
 
 **功能**: 从右侧弹出元素
 
-##### lrange(key: string, start: number, stop: number): Promise<string[]>
+###### lrange(key: string, start: number, stop: number): Promise<string[]>
 
-**功能**: 获取列表范围元素  
+**功能**: 获取列表范围元素
 **参数**:
-
 - `key` (string) - 键名
 - `start` (number) - 起始索引
 - `stop` (number) - 结束索引（-1 表示到末尾）
-  **返回值**: Promise<string[]>
 
-##### llen(key: string): Promise<number>
+**返回值**: Promise<string[]>
+
+###### llen(key: string): Promise<number>
 
 **功能**: 获取列表长度
 
-#### 集合操作
+##### 集合操作
 
-##### sadd(key: string, ...members: string[]): Promise<number>
+###### sadd(key: string, ...members: string[]): Promise<number>
 
-**功能**: 添加集合成员  
+**功能**: 添加集合成员
 **返回值**: Promise<number> - 添加的成员数量
 
-##### srem(key: string, ...members: string[]): Promise<number>
+###### srem(key: string, ...members: string[]): Promise<number>
 
 **功能**: 删除集合成员
 
-##### smembers(key: string): Promise<string[]>
+###### smembers(key: string): Promise<string[]>
 
 **功能**: 获取所有集合成员
 
-##### sismember(key: string, member: string): Promise<boolean>
+###### sismember(key: string, member: string): Promise<boolean>
 
 **功能**: 检查是否为集合成员
 
-##### scard(key: string): Promise<number>
+###### scard(key: string): Promise<number>
 
 **功能**: 获取集合大小
 
-#### 有序集合操作
+##### 有序集合操作
 
-##### zadd(key: string, score: number, member: string): Promise<number>
+###### zadd(key: string, score: number, member: string): Promise<number>
 
-**功能**: 添加有序集合成员  
+**功能**: 添加有序集合成员
 **参数**:
-
 - `key` (string) - 键名
 - `score` (number) - 分数
 - `member` (string) - 成员
 
-##### zrange(key: string, start: number, stop: number, withScores?: boolean): Promise<any[]>
+###### zrange(key: string, start: number, stop: number, withScores?: boolean): Promise<any[]>
 
-**功能**: 按索引范围获取成员  
+**功能**: 按索引范围获取成员
 **参数**:
-
 - `key` (string) - 键名
 - `start` (number) - 起始索引
 - `stop` (number) - 结束索引
 - `withScores` (boolean, 可选) - 是否返回分数
 
-##### zscore(key: string, member: string): Promise<number|null>
+###### zscore(key: string, member: string): Promise<number|null>
 
 **功能**: 获取成员分数
 
-##### zcard(key: string): Promise<number>
+###### zcard(key: string): Promise<number>
 
 **功能**: 获取有序集合大小
 
-#### 通用操作
+##### 通用操作
 
-##### ping(): Promise<string>
+###### ping(): Promise<string>
 
-**功能**: 测试连接  
+**功能**: 测试连接
 **返回值**: Promise<string> - 'PONG'
 
-##### close(): Promise<void>
+###### close(): Promise<void>
 
 **功能**: 关闭连接
 
 ---
 
-## sqlite - SQLite 数据库模块
+### db/sqlite - SQLite 数据库
 
-### open(path: string): Promise<Database>
+#### open(path: string): Promise<Database>
 
-**功能**: 打开数据库连接  
-**参数**: `path` (string) - 数据库文件路径，':memory:' 表示内存数据库  
+**功能**: 打开数据库连接
+**参数**: `path` (string) - 数据库文件路径，':memory:' 表示内存数据库
 **返回值**: Promise<Database>
+
+#### Database 对象方法
+
+##### exec(sql: string): Promise<void>
+
+**功能**: 执行 SQL 语句（不返回结果）
+**参数**: `sql` (string) - SQL 语句
+**返回值**: Promise<void>
+
+##### run(sql: string, params?: any[]): Promise<RunResult>
+
+**功能**: 执行 SQL 语句（INSERT、UPDATE、DELETE）
+**参数**:
+- `sql` (string) - SQL 语句，支持 ? 占位符
+- `params` (array, 可选) - 参数数组
+
+**返回值**: Promise<RunResult> - `{lastInsertId, rowsAffected}`
+
+##### get(sql: string, params?: any[]): Promise<object|null>
+
+**功能**: 查询单条记录
+**参数**:
+- `sql` (string) - SQL 查询语句
+- `params` (array, 可选) - 参数数组
+
+**返回值**: Promise<object|null> - 记录对象
+
+##### all(sql: string, params?: any[]): Promise<object[]>
+
+**功能**: 查询多条记录
+**参数**:
+- `sql` (string) - SQL 查询语句
+- `params` (array, 可选) - 参数数组
+
+**返回值**: Promise<object[]> - 记录数组
+
+##### prepare(sql: string): Promise<Statement>
+
+**功能**: 创建预处理语句
+**参数**: `sql` (string) - SQL 语句
+**返回值**: Promise<Statement>
+
+##### transaction(callback: function): Promise<void>
+
+**功能**: 执行事务
+**参数**: `callback` (function) - 事务函数 `async (tx) => {}`
+**返回值**: Promise<void>
+
+##### close(): Promise<void>
+
+**功能**: 关闭数据库连接
+
+##### tables(): Promise<string[]>
+
+**功能**: 获取所有表名
+**返回值**: Promise<string[]>
+
+##### schema(tableName: string): Promise<object[]>
+
+**功能**: 获取表结构
+**参数**: `tableName` (string) - 表名
+**返回值**: Promise<object[]> - 列信息数组
+
+#### Statement 对象方法
+
+##### run(params?: any[]): Promise<RunResult>
+
+**功能**: 执行预处理语句
+
+##### get(params?: any[]): Promise<object|null>
+
+**功能**: 查询单条记录
+
+##### all(params?: any[]): Promise<object[]>
+
+**功能**: 查询多条记录
+
+##### close(): Promise<void>
+
+**功能**: 关闭预处理语句
 
 ---
 
-## time - 时间处理模块
+## utils - 工具模块
 
-### 时间获取
+```javascript
+const { path, time, crypto, compression, util } = require('utils');
+// 或分别导入
+const path = require('utils/path');
+const time = require('utils/time');
+const crypto = require('utils/crypto');
+const compression = require('utils/compression');
+const util = require('utils/util');
+```
+
+---
+
+### utils/path - 路径处理
+
+#### join(...paths: string[]): string
+
+**功能**: 连接多个路径片段
+**参数**: 任意数量的路径字符串
+**返回值**: 连接后的路径字符串
+
+#### resolve(...paths: string[]): string
+
+**功能**: 将路径解析为绝对路径
+**参数**: 任意数量的路径字符串
+**返回值**: 绝对路径字符串
+
+#### dirname(path: string): string
+
+**功能**: 获取路径的目录部分
+**参数**: `path` (string) - 文件路径
+**返回值**: 目录路径
+
+#### basename(path: string, ext?: string): string
+
+**功能**: 获取路径的基础文件名
+**参数**:
+- `path` (string) - 文件路径
+- `ext` (string, 可选) - 要移除的扩展名
+
+**返回值**: 文件名
+
+#### extname(path: string): string
+
+**功能**: 获取路径的扩展名
+**参数**: `path` (string) - 文件路径
+**返回值**: 扩展名（包含点）
+
+#### isAbsolute(path: string): boolean
+
+**功能**: 判断路径是否为绝对路径
+**参数**: `path` (string) - 文件路径
+**返回值**: true/false
+
+#### normalize(path: string): string
+
+**功能**: 规范化路径
+**参数**: `path` (string) - 文件路径
+**返回值**: 规范化后的路径
+
+#### relative(from: string, to: string): string
+
+**功能**: 计算从 from 到 to 的相对路径
+**参数**:
+- `from` (string) - 起始路径
+- `to` (string) - 目标路径
+
+**返回值**: 相对路径
+
+#### 常量
+
+- `sep`: 路径分隔符
+- `delimiter`: 路径定界符
+
+---
+
+### utils/time - 时间处理
 
 #### now(): string
 
-**功能**: 获取当前时间（ISO 8601 格式）  
-**返回值**: string - ISO 8601 格式的时间字符串  
-**示例**:
-
-```javascript
-const time = require("time");
-console.log(time.now()); // "2024-12-27T15:30:00Z"
-```
+**功能**: 获取当前时间（ISO 8601 格式）
+**返回值**: string - ISO 8601 格式的时间字符串
 
 #### nowUnix(): number
 
-**功能**: 获取当前 Unix 时间戳（秒）  
+**功能**: 获取当前 Unix 时间戳（秒）
 **返回值**: number - Unix 时间戳
 
 #### nowUnixMilli(): number
 
-**功能**: 获取当前 Unix 时间戳（毫秒）  
+**功能**: 获取当前 Unix 时间戳（毫秒）
 **返回值**: number - 毫秒级 Unix 时间戳
 
 #### nowUnixNano(): number
 
-**功能**: 获取当前 Unix 时间戳（纳秒）  
+**功能**: 获取当前 Unix 时间戳（纳秒）
 **返回值**: number - 纳秒级 Unix 时间戳
-
-### 时间解析和格式化
 
 #### parse(timeStr: string, layout?: string): object
 
-**功能**: 解析时间字符串  
+**功能**: 解析时间字符串
 **参数**:
-
 - `timeStr` (string) - 时间字符串
 - `layout` (string, 可选) - 时间格式，默认 RFC3339
-  **返回值**: object - 包含 unix, iso, year, month, day, hour, minute, second, weekday  
-  **示例**:
 
-```javascript
-const parsed = time.parse("2024-12-27T15:30:00Z");
-console.log(parsed.year); // 2024
-console.log(parsed.month); // 12
-```
+**返回值**: object - 包含 unix, iso, year, month, day, hour, minute, second, weekday
 
 #### format(timestamp: number, layout?: string): string
 
-**功能**: 格式化时间戳  
+**功能**: 格式化时间戳
 **参数**:
-
 - `timestamp` (number) - Unix 时间戳（秒）
 - `layout` (string, 可选) - 时间格式，默认 RFC3339
-  **返回值**: string - 格式化后的时间字符串  
-  **示例**:
 
-```javascript
-const ts = time.nowUnix();
-console.log(time.format(ts, time.FORMAT.DateTime)); // "2024-12-27 15:30:00"
-```
-
-### 延迟执行
+**返回值**: string - 格式化后的时间字符串
 
 #### sleep(seconds: number): Promise<void>
 
-**功能**: 延迟执行（秒）  
-**参数**: `seconds` (number) - 延迟秒数  
-**返回值**: Promise<void>  
-**示例**:
-
-```javascript
-time.sleep(2).then(() => console.log("2秒后执行"));
-```
+**功能**: 延迟执行（秒）
+**参数**: `seconds` (number) - 延迟秒数
+**返回值**: Promise<void>
 
 #### sleepMillis(milliseconds: number): Promise<void>
 
-**功能**: 延迟执行（毫秒）  
-**参数**: `milliseconds` (number) - 延迟毫秒数  
+**功能**: 延迟执行（毫秒）
+**参数**: `milliseconds` (number) - 延迟毫秒数
 **返回值**: Promise<void>
-
-### 时间计算
-
-#### add(timestamp: number, duration: number): number
-
-**功能**: 添加时间间隔  
-**参数**:
-
-- `timestamp` (number) - Unix 时间戳
-- `duration` (number) - 时间间隔（纳秒）
-  **返回值**: number - 新的 Unix 时间戳
 
 #### addDays(timestamp: number, days: number): number
 
-**功能**: 添加天数  
+**功能**: 添加天数
 **返回值**: number - 新的 Unix 时间戳
 
 #### addHours(timestamp: number, hours: number): number
 
-**功能**: 添加小时  
+**功能**: 添加小时
 **返回值**: number - 新的 Unix 时间戳
 
 #### addMinutes(timestamp: number, minutes: number): number
 
-**功能**: 添加分钟  
+**功能**: 添加分钟
 **返回值**: number - 新的 Unix 时间戳
 
 #### addSeconds(timestamp: number, seconds: number): number
 
-**功能**: 添加秒数  
+**功能**: 添加秒数
 **返回值**: number - 新的 Unix 时间戳
-
-### 时间比较
 
 #### isBefore(time1: number, time2: number): boolean
 
-**功能**: 判断时间 1 是否在时间 2 之前  
+**功能**: 判断时间 1 是否在时间 2 之前
 **返回值**: boolean
 
 #### isAfter(time1: number, time2: number): boolean
 
-**功能**: 判断时间 1 是否在时间 2 之后  
+**功能**: 判断时间 1 是否在时间 2 之后
 **返回值**: boolean
 
 #### diff(time1: number, time2: number): object
 
-**功能**: 计算时间差  
-**返回值**: object - 包含 seconds, minutes, hours, days  
-**示例**:
-
-```javascript
-const diff = time.diff(tomorrow, today);
-console.log(diff.days); // 1
-```
-
-### 时区处理
+**功能**: 计算时间差
+**返回值**: object - 包含 seconds, minutes, hours, days
 
 #### utc(timestamp: number): string
 
-**功能**: 转换为 UTC 时区  
+**功能**: 转换为 UTC 时区
 **返回值**: string - UTC 时间字符串
 
 #### local(timestamp: number): string
 
-**功能**: 转换为本地时区  
+**功能**: 转换为本地时区
 **返回值**: string - 本地时间字符串
-
-#### inLocation(timestamp: number, location: string): string
-
-**功能**: 转换到指定时区  
-**参数**:
-
-- `timestamp` (number) - Unix 时间戳
-- `location` (string) - 时区名称（如 'Asia/Tokyo'）
-  **返回值**: string - 指定时区的时间字符串
-
-### 时间组件获取
 
 #### getYear(timestamp: number): number
 
@@ -1494,214 +898,713 @@ console.log(diff.days); // 1
 
 #### getWeekday(timestamp: number): object
 
-**功能**: 获取星期几  
+**功能**: 获取星期几
 **返回值**: object - 包含 number (0-6) 和 name (英文名称)
-
-### 时间创建
 
 #### create(year: number, month: number, day: number, hour?: number, minute?: number, second?: number): number
 
-**功能**: 创建时间  
-**参数**: 年、月、日、时、分、秒  
-**返回值**: number - Unix 时间戳  
-**示例**:
-
-```javascript
-const christmas = time.create(2024, 12, 25, 18, 30, 0);
-```
+**功能**: 创建时间
+**参数**: 年、月、日、时、分、秒
+**返回值**: number - Unix 时间戳
 
 #### fromUnix(timestamp: number): object
 
-**功能**: 从 Unix 时间戳创建时间对象  
+**功能**: 从 Unix 时间戳创建时间对象
 **返回值**: object - 包含 unix, iso, year, month, day, hour, minute, second, weekday
-
-#### fromUnixMilli(milliseconds: number): object
-
-**功能**: 从毫秒时间戳创建时间对象  
-**返回值**: object - 时间对象
-
-### Ticker 定时器
 
 #### setInterval(callback: function, interval: number): number
 
-**功能**: 设置周期性定时器（类似 JavaScript 的 setInterval）  
+**功能**: 设置周期性定时器
 **参数**:
-
 - `callback` (function) - 回调函数
 - `interval` (number) - 时间间隔（毫秒）
-  **返回值**: number - 定时器 ID  
-  **示例**:
 
-```javascript
-const timerId = time.setInterval(() => {
-  console.log("每秒执行");
-}, 1000);
-
-// 停止定时器
-time.clearInterval(timerId);
-```
+**返回值**: number - 定时器 ID
 
 #### clearInterval(timerId: number): void
 
-**功能**: 清除定时器  
+**功能**: 清除定时器
 **参数**: `timerId` (number) - 定时器 ID
 
 #### createTicker(interval: number): Ticker
 
-**功能**: 创建 Ticker 对象  
-**参数**: `interval` (number) - 时间间隔（毫秒）  
-**返回值**: Ticker 对象  
-**示例**:
+**功能**: 创建 Ticker 对象
+**参数**: `interval` (number) - 时间间隔（毫秒）
+**返回值**: Ticker 对象
+
+#### FORMAT 常量
 
 ```javascript
-const ticker = time.createTicker(500);
-
-ticker.tick(() => {
-  console.log("Tick!");
-});
-
-// 停止 ticker
-ticker.stop();
-
-// 重置间隔
-ticker.reset(1000);
+time.FORMAT.RFC3339;     // "2006-01-02T15:04:05Z07:00"
+time.FORMAT.RFC1123;     // "Mon, 02 Jan 2006 15:04:05 MST"
+time.FORMAT.DateTime;    // "2006-01-02 15:04:05"
+time.FORMAT.Date;        // "2006-01-02"
+time.FORMAT.Time;        // "15:04:05"
+time.FORMAT.Kitchen;     // "3:04PM"
 ```
 
-### Ticker 对象方法
-
-#### tick(callback: function): void
-
-**功能**: 注册 Tick 回调函数  
-**参数**: `callback` (function) - 每次 tick 时执行的回调
-
-#### stop(): void
-
-**功能**: 停止 Ticker
-
-#### reset(interval: number): void
-
-**功能**: 重置 Ticker 间隔  
-**参数**: `interval` (number) - 新的时间间隔（毫秒）
-
-### 常量
-
-#### FORMAT 格式常量
+#### UNIT 常量
 
 ```javascript
-time.FORMAT.RFC3339; // "2006-01-02T15:04:05Z07:00"
-time.FORMAT.RFC3339Nano; // RFC3339 含纳秒
-time.FORMAT.RFC822; // RFC822 格式
-time.FORMAT.RFC1123; // RFC1123 格式
-time.FORMAT.DateTime; // "2006-01-02 15:04:05"
-time.FORMAT.Date; // "2006-01-02"
-time.FORMAT.Time; // "15:04:05"
-time.FORMAT.Kitchen; // "3:04PM"
-```
-
-#### UNIT 时间单位常量
-
-```javascript
-time.UNIT.NANOSECOND; // 纳秒
-time.UNIT.MICROSECOND; // 微秒
-time.UNIT.MILLISECOND; // 毫秒
-time.UNIT.SECOND; // 秒
-time.UNIT.MINUTE; // 分钟
-time.UNIT.HOUR; // 小时
+time.UNIT.MILLISECOND;   // 毫秒
+time.UNIT.SECOND;        // 秒
+time.UNIT.MINUTE;        // 分钟
+time.UNIT.HOUR;          // 小时
 ```
 
 ---
 
-### Database 对象方法
+### utils/crypto - 加密模块
 
-#### exec(sql: string): Promise<void>
+#### md5(data: string): string
 
-**功能**: 执行 SQL 语句（不返回结果）  
-**参数**: `sql` (string) - SQL 语句  
-**返回值**: Promise<void>
+**功能**: 计算 MD5 哈希值
+**参数**: `data` (string) - 输入数据
+**返回值**: 十六进制哈希字符串
 
-#### run(sql: string, params?: any[]): Promise<RunResult>
+#### sha1(data: string): string
 
-**功能**: 执行 SQL 语句（INSERT、UPDATE、DELETE）  
+**功能**: 计算 SHA1 哈希值
+**参数**: `data` (string) - 输入数据
+**返回值**: 十六进制哈希字符串
+
+#### sha256(data: string): string
+
+**功能**: 计算 SHA256 哈希值
+**参数**: `data` (string) - 输入数据
+**返回值**: 十六进制哈希字符串
+
+#### sha512(data: string): string
+
+**功能**: 计算 SHA512 哈希值
+**参数**: `data` (string) - 输入数据
+**返回值**: 十六进制哈希字符串
+
+#### base64Encode(data: string): string
+
+**功能**: Base64 编码
+**参数**: `data` (string) - 原始数据
+**返回值**: Base64 编码字符串
+
+#### base64Decode(data: string): string
+
+**功能**: Base64 解码
+**参数**: `data` (string) - Base64 编码字符串
+**返回值**: 解码后的原始数据
+
+#### hexEncode(data: string): string
+
+**功能**: 十六进制编码
+**参数**: `data` (string) - 原始数据
+**返回值**: 十六进制字符串
+
+#### hexDecode(data: string): string
+
+**功能**: 十六进制解码
+**参数**: `data` (string) - 十六进制字符串
+**返回值**: 解码后的原始数据
+
+#### aesEncrypt(data: string, key: string): string
+
+**功能**: AES-256-GCM 加密
 **参数**:
+- `data` (string) - 待加密数据
+- `key` (string) - 加密密钥（32字节）
 
-- `sql` (string) - SQL 语句，支持 ? 占位符
-- `params` (array, 可选) - 参数数组
-  **返回值**: Promise<RunResult> - `{lastInsertId, rowsAffected}`
+**返回值**: Base64 编码的加密数据
 
-#### get(sql: string, params?: any[]): Promise<object|null>
+#### aesDecrypt(data: string, key: string): string
 
-**功能**: 查询单条记录  
+**功能**: AES-256-GCM 解密
 **参数**:
+- `data` (string) - Base64 编码的加密数据
+- `key` (string) - 解密密钥（32字节）
 
-- `sql` (string) - SQL 查询语句
-- `params` (array, 可选) - 参数数组
-  **返回值**: Promise<object|null> - 记录对象
+**返回值**: 解密后的原始数据
 
-#### all(sql: string, params?: any[]): Promise<object[]>
+#### randomBytes(size?: number): string
 
-**功能**: 查询多条记录  
+**功能**: 生成安全随机字节
+**参数**: `size` (number, 可选) - 字节数，默认 16
+**返回值**: 十六进制编码的随机字节
+
+---
+
+### utils/compression - 压缩模块
+
+#### gzipCompress(data: string): string
+
+**功能**: Gzip 压缩
+**参数**: `data` (string) - 原始数据
+**返回值**: Base64 编码的压缩数据
+
+#### gzipDecompress(data: string): string
+
+**功能**: Gzip 解压
+**参数**: `data` (string) - Base64 编码的压缩数据
+**返回值**: 解压后的原始数据
+
+#### zlibCompress(data: string): string
+
+**功能**: Zlib 压缩
+**参数**: `data` (string) - 原始数据
+**返回值**: Base64 编码的压缩数据
+
+#### zlibDecompress(data: string): string
+
+**功能**: Zlib 解压
+**参数**: `data` (string) - Base64 编码的压缩数据
+**返回值**: 解压后的原始数据
+
+---
+
+### utils/util - 工具函数
+
+#### format(...args: any[]): string
+
+**功能**: 格式化字符串（类似 util.format）
+**参数**: 任意参数
+**返回值**: 格式化后的字符串
+
+支持格式说明符：
+- `%s` - 字符串
+- `%d` - 数字
+- `%j` - JSON
+- `%%` - 百分号
+
+#### inspect(value: any, options?: object): string
+
+**功能**: 返回对象的字符串表示
 **参数**:
+- `value` (any) - 要检查的值
+- `options` (object, 可选) - 选项
 
-- `sql` (string) - SQL 查询语句
-- `params` (array, 可选) - 参数数组
-  **返回值**: Promise<object[]> - 记录数组
+**返回值**: 字符串表示
 
-#### prepare(sql: string): Promise<Statement>
+#### isDeepStrictEqual(value1: any, value2: any): boolean
 
-**功能**: 创建预处理语句  
-**参数**: `sql` (string) - SQL 语句  
-**返回值**: Promise<Statement>
+**功能**: 深度严格比较两个值
+**参数**:
+- `value1` (any) - 第一个值
+- `value2` (any) - 第二个值
 
-#### transaction(callback: function): Promise<void>
+**返回值**: boolean - 是否相等
 
-**功能**: 执行事务  
-**参数**: `callback` (function) - 事务函数 `async (tx) => {}`  
-**返回值**: Promise<void>
+#### types
 
-#### close(): Promise<void>
+##### types.isDate(value: any): boolean
 
-**功能**: 关闭数据库连接
+**功能**: 检查是否为 Date 对象
 
-#### tables(): Promise<string[]>
+##### types.isRegExp(value: any): boolean
 
-**功能**: 获取所有表名  
-**返回值**: Promise<string[]>
+**功能**: 检查是否为 RegExp 对象
 
-#### schema(tableName: string): Promise<object[]>
+##### types.isPromise(value: any): boolean
 
-**功能**: 获取表结构  
-**参数**: `tableName` (string) - 表名  
-**返回值**: Promise<object[]> - 列信息数组
+**功能**: 检查是否为 Promise 对象
 
-### Statement 对象方法
+##### types.isMap(value: any): boolean
 
-#### run(params?: any[]): Promise<RunResult>
+**功能**: 检查是否为 Map 对象
 
-**功能**: 执行预处理语句
+##### types.isSet(value: any): boolean
 
-#### get(params?: any[]): Promise<object|null>
+**功能**: 检查是否为 Set 对象
 
-**功能**: 查询单条记录
+---
 
-#### all(params?: any[]): Promise<object[]>
+## net - 网络模块
 
-**功能**: 查询多条记录
+```javascript
+const { net, websocket, proxy } = require('net');
+// 或分别导入
+const net = require('net/net');
+const websocket = require('net/websocket');
+const proxy = require('net/proxy');
+```
 
-#### close(): Promise<void>
+---
 
-**功能**: 关闭预处理语句
+### net/net - TCP/UDP 网络
+
+#### createTCPServer(): TCPServer
+
+**功能**: 创建 TCP 服务器实例
+**返回值**: TCPServer 对象
+
+#### connectTCP(address: string, options?: ConnectOptions): Promise<TCPSocket>
+
+**功能**: 连接到 TCP 服务器
+**参数**:
+- `address` (string) - 服务器地址，格式为 "host:port"
+- `options` (object, 可选) - 连接选项
+
+**返回值**: Promise<TCPSocket>
+
+#### createUDPSocket(type?: string): UDPSocket
+
+**功能**: 创建 UDP 套接字
+**参数**: `type` (string, 可选) - 套接字类型，'udp4' 或 'udp6'，默认 'udp4'
+**返回值**: UDPSocket 对象
+
+#### TCPServer 对象方法
+
+##### listen(port: string|number, callback?: function): Promise<string>
+
+**功能**: 启动 TCP 服务器监听指定端口
+
+##### on(event: string, handler: function): TCPServer
+
+**功能**: 注册事件处理器
+**事件**: `'connection'` - 新客户端连接
+
+##### close(): Promise<void>
+
+**功能**: 关闭 TCP 服务器
+
+#### TCPSocket 对象
+
+##### 属性
+
+- `remoteAddress` (string): 远程地址
+- `localAddress` (string): 本地地址
+
+##### write(data: string): Promise<boolean>
+
+**功能**: 发送数据
+
+##### on(event: string, handler: function): TCPSocket
+
+**功能**: 注册事件处理器
+**事件**:
+- `'data'`: 收到数据
+- `'close'`: 连接关闭
+- `'error'`: 发生错误
+
+##### close(): void
+
+**功能**: 关闭连接
+
+##### setTimeout(timeout: number): TCPSocket
+
+**功能**: 设置连接超时
+
+#### UDPSocket 对象方法
+
+##### bind(port: string, host?: string, callback?: function): Promise<string>
+
+**功能**: 绑定 UDP 套接字到指定端口
+
+##### send(data: string, port: string, host: string, callback?: function): Promise<boolean>
+
+**功能**: 发送 UDP 数据包
+
+##### on(event: string, handler: function): UDPSocket
+
+**功能**: 注册事件处理器
+**事件**:
+- `'message'`: 收到消息
+- `'close'`: 套接字关闭
+- `'error'`: 发生错误
+
+##### close(): void
+
+**功能**: 关闭 UDP 套接字
+
+##### address(): object|undefined
+
+**功能**: 获取套接字地址信息
+**返回值**: 地址对象 `{address, port, family}`
+
+---
+
+### net/websocket - WebSocket
+
+#### connect(url: string, options?: ConnectOptions): Promise<WebSocketClient>
+
+**功能**: 连接到 WebSocket 服务器
+**参数**:
+- `url` (string) - WebSocket URL（ws:// 或 wss://）
+- `options` (object, 可选) - 连接选项
+
+**返回值**: Promise<WebSocketClient>
+
+#### ConnectOptions 对象
+
+```typescript
+{
+  timeout?: number,        // 连接超时（毫秒），默认 10000
+  headers?: object,        // 自定义 HTTP 请求头
+  protocols?: string[]     // WebSocket 子协议
+}
+```
+
+#### WebSocketClient 对象方法
+
+##### send(message: string): void
+
+**功能**: 发送文本消息
+
+##### sendJSON(data: any): void
+
+**功能**: 发送 JSON 消息
+
+##### sendBinary(data: ArrayBuffer|Uint8Array): void
+
+**功能**: 发送二进制消息
+
+##### ping(data?: string): void
+
+**功能**: 发送 ping 帧
+
+##### close(code?: number, reason?: string): void
+
+**功能**: 关闭连接
+
+##### isClosed(): boolean
+
+**功能**: 检查连接是否已关闭
+**返回值**: true/false
+
+##### on(event: string, handler: function): void
+
+**功能**: 监听事件
+**事件**:
+- `'message'`: 收到消息
+- `'close'`: 连接关闭
+- `'error'`: 发生错误
+- `'pong'`: 收到 pong 响应
+
+---
+
+### net/proxy - 代理模块
+
+#### createHTTPProxy(targetURL: string): HTTPProxy
+
+**功能**: 创建 HTTP/HTTPS 代理服务器
+**参数**: `targetURL` (string) - 目标服务器 URL
+
+#### createTCPProxy(target: string): TCPProxy
+
+**功能**: 创建 TCP 代理服务器
+**参数**: `target` (string) - 目标服务器地址
+
+#### HTTPProxy 对象方法
+
+##### on(event: string, handler: function): void
+
+**功能**: 注册事件处理器
+**事件**:
+- `'request'`: 接收到请求
+- `'response'`: 收到响应
+- `'error'`: 代理错误
+
+##### listen(port: string|number, callback?: function): Promise<string>
+
+**功能**: 启动 HTTP 代理服务器
+
+##### close(): Promise<string>
+
+**功能**: 关闭 HTTP 代理服务器
+
+#### TCPProxy 对象方法
+
+##### on(event: string, handler: function): void
+
+**功能**: 注册事件处理器
+**事件**:
+- `'connection'`: 新连接建立
+- `'data'`: 数据传输
+- `'close'`: 连接关闭
+- `'error'`: 代理错误
+
+##### listen(port: string|number, callback?: function): Promise<string>
+
+**功能**: 启动 TCP 代理服务器
+
+##### close(): Promise<string>
+
+**功能**: 关闭 TCP 代理服务器
+
+---
+
+## fs - 文件系统模块
+
+```javascript
+const { fs, os } = require('fs');
+// 或分别导入
+const fs = require('fs/fs');
+const os = require('fs/os');
+```
+
+---
+
+### fs/fs - 文件操作
+
+#### 同步方法
+
+##### readFileSync(path: string, encoding?: string): string
+
+**功能**: 同步读取文件
+**参数**:
+- `path` (string) - 文件路径
+- `encoding` (string, 可选) - 编码格式，默认 'utf8'
+
+**返回值**: 文件内容字符串
+
+##### writeFileSync(path: string, data: string, encoding?: string): void
+
+**功能**: 同步写入文件
+
+##### existsSync(path: string): boolean
+
+**功能**: 检查文件或目录是否存在
+
+##### statSync(path: string): object
+
+**功能**: 获取文件或目录信息
+**返回值**: 包含 `isFile()`, `isDirectory()`, `size`, `modTime` 等的对象
+
+##### mkdirSync(path: string, recursive?: boolean): void
+
+**功能**: 同步创建目录
+
+##### readdirSync(path: string): string[]
+
+**功能**: 同步读取目录内容
+
+##### unlinkSync(path: string): void
+
+**功能**: 同步删除文件
+
+##### rmdirSync(path: string, recursive?: boolean): void
+
+**功能**: 同步删除目录
+
+##### copyFileSync(src: string, dest: string): void
+
+**功能**: 同步复制文件
+
+##### renameSync(oldPath: string, newPath: string): void
+
+**功能**: 同步重命名或移动文件
+
+#### 异步方法（Promise）
+
+所有同步方法都有对应的异步版本（去掉 Sync 后缀）：
+
+- `readFile(path, encoding?): Promise<string>`
+- `writeFile(path, data, encoding?): Promise<void>`
+- `exists(path): Promise<boolean>`
+- `stat(path): Promise<object>`
+- `mkdir(path, recursive?): Promise<void>`
+- `readdir(path): Promise<string[]>`
+- `unlink(path): Promise<void>`
+- `rmdir(path, recursive?): Promise<void>`
+- `copyFile(src, dest): Promise<void>`
+- `rename(oldPath, newPath): Promise<void>`
+
+---
+
+### fs/os - 操作系统信息
+
+#### hostname(): string
+
+**功能**: 获取主机名
+**返回值**: 主机名字符串
+
+#### homedir(): string
+
+**功能**: 获取用户主目录
+**返回值**: 主目录路径
+
+#### tmpdir(): string
+
+**功能**: 获取临时目录
+**返回值**: 临时目录路径
+
+#### arch(): string
+
+**功能**: 获取 CPU 架构
+**返回值**: 架构名称（如 'x64'）
+
+#### platform(): string
+
+**功能**: 获取操作系统平台
+**返回值**: 平台名称（如 'win32', 'linux', 'darwin'）
+
+#### uptime(): number
+
+**功能**: 获取系统运行时间（秒）
+
+#### totalmem(): number
+
+**功能**: 获取总内存字节数
+
+#### freemem(): number
+
+**功能**: 获取空闲内存字节数
+
+#### cpus(): object[]
+
+**功能**: 获取 CPU 信息
+**返回值**: CPU 对象数组，每个包含 `model`, `speed`, `times`
+
+#### networkInterfaces(): object
+
+**功能**: 获取网络接口信息
+**返回值**: 网络接口对象
+
+#### userInfo(): object
+
+**功能**: 获取当前用户信息
+**返回值**: 包含 `username`, `uid`, `gid`, `homedir` 的对象
+
+#### type(): string
+
+**功能**: 获取操作系统类型
+**返回值**: 如 'Windows_NT', 'Linux', 'Darwin'
+
+#### release(): string
+
+**功能**: 获取内核版本
+**返回值**: 内核版本字符串
+
+---
+
+## config - 配置模块
+
+```javascript
+const { viper } = require('config');
+// 或导入
+const viper = require('config/viper');
+```
+
+---
+
+### config/viper - 配置管理
+
+#### new(name?: string): ViperInstance
+
+**功能**: 创建新的 Viper 实例
+**参数**: `name` (string, 可选) - 实例名称，默认 'default'
+**返回值**: ViperInstance
+
+#### ViperInstance 对象方法
+
+##### setConfigFile(configFile: string): void
+
+**功能**: 设置配置文件路径
+
+##### setConfigName(name: string): void
+
+**功能**: 设置配置文件名（不含扩展名）
+
+##### addConfigPath(path: string): void
+
+**功能**: 添加搜索配置文件的路径
+
+##### setConfigType(configType: string): void
+
+**功能**: 设置配置类型（如 'yaml', 'json', 'toml' 等）
+
+##### readInConfig(): void
+
+**功能**: 读取配置文件
+
+##### safeWriteConfig(): void
+
+**功能**: 安全写入配置
+
+##### get(key: string): any
+
+**功能**: 获取配置值
+
+##### getString(key: string): string
+
+**功能**: 获取字符串配置值
+
+##### getInt(key: string): number
+
+**功能**: 获取整数配置值
+
+##### getInt64(key: string): number
+
+**功能**: 获取 64 位整数配置值
+
+##### getFloat64(key: string): number
+
+**功能**: 获取浮点数配置值
+
+##### getBool(key: string): boolean
+
+**功能**: 获取布尔配置值
+
+##### getStringSlice(key: string): string[]
+
+**功能**: 获取字符串数组配置值
+
+##### set(key: string, value: any): void
+
+**功能**: 设置配置值
+
+##### setDefault(key: string, value: any): void
+
+**功能**: 设置默认值
+
+##### isSet(key: string): boolean
+
+**功能**: 检查键是否已设置
+
+##### allSettings(): object
+
+**功能**: 获取所有配置
+
+##### keys(): string[]
+
+**功能**: 获取所有配置键
+
+##### bindEnv(names: ...string): void
+
+**功能**: 绑定环境变量
+
+##### setEnvPrefix(prefix: string): void
+
+**功能**: 设置环境变量前缀
+
+##### unmarshal(obj: object): void
+
+**功能**: 将配置解组到对象
+
+##### unmarshalExact(obj: object): void
+
+**功能**: 精确解组配置到对象
 
 ---
 
 ## process - 进程模块
 
-`process` 是一个全局对象，提供有关当前进程的信息和控制。
+```javascript
+const { process, exec } = require('process');
+// 或分别导入
+const process = require('process/process');
+const exec = require('process/exec');
+// 向后兼容
+const exec = require('exec');
+```
 
-### 属性
+---
+
+### process/process - 进程信息与控制
+
+`process` 对象提供有关当前进程的信息和控制。
+
+#### 属性
 
 - `pid` (number): 当前进程 ID
-- `platform` (string): 操作系统平台 (如 'linux', 'darwin', 'windows')
-- `arch` (string): CPU 架构 (如 'amd64', 'arm64')
+- `platform` (string): 操作系统平台
+- `arch` (string): CPU 架构
 - `versions` (object): 版本信息对象
   - `node`: 兼容性版本
   - `sw_runtime`: 运行时版本
@@ -1733,43 +1636,33 @@ time.UNIT.HOUR; // 小时
 
 获取内存使用情况。返回对象包含 `rss`, `heapTotal`, `heapUsed` 等属性。
 
-#### nextTick(callback: function): void
-
-将回调函数加入到微任务队列，在当前操作完成后立即执行。
-
 #### hrtime(time?: [number, number]): [number, number]
 
-获取高精度时间。如果不传参数，返回当前时间 `[seconds, nanoseconds]`。如果传入上一次的时间，返回时间差。
+获取高精度时间。
 
 #### kill(pid: number, signal?: string): boolean
 
-发送信号给进程。`signal` 默认为 'SIGINT'。
+发送信号给进程。
 
 ---
 
-## process/exec - 进程执行模块
+### process/exec - 进程执行
 
-### execSync(command: string, args?: string[], options?: ExecOptions): object
+#### exec(command: string, args?: string[], options?: ExecOptions): Promise<object>
 
-**功能**: 同步执行命令  
+**功能**: 异步执行命令
 **参数**:
-
 - `command` (string) - 命令名称
 - `args` (string[], 可选) - 命令参数
 - `options` (object, 可选) - 执行选项
-  **返回值**: 结果对象
 
-### exec(command: string, args?: string[], options?: ExecOptions): Promise<object>
+**返回值**: Promise<object> - 执行结果
 
-**功能**: 异步执行命令  
-**参数**:
+#### execSync(command: string, args?: string[], options?: ExecOptions): object
 
-- `command` (string) - 命令名称
-- `args` (string[], 可选) - 命令参数
-- `options` (object, 可选) - 执行选项
-  **返回值**: Promise<object>
+**功能**: 同步执行命令
 
-### ExecOptions 对象
+#### ExecOptions 对象
 
 ```typescript
 {
@@ -1779,7 +1672,7 @@ time.UNIT.HOUR; // 小时
 }
 ```
 
-### 执行结果对象
+#### 执行结果对象
 
 ```typescript
 {
@@ -1790,39 +1683,25 @@ time.UNIT.HOUR; // 小时
   error: string|null,      // 错误信息
   command: string,         // 执行的命令
   args: string[],          // 命令参数
-  timedOut?: boolean       // 是否超时（仅异步）
+  timedOut?: boolean       // 是否超时
 }
 ```
 
-### getEnv(key?: string, defaultValue?: string): any
+#### getEnv(key?: string, defaultValue?: string): any
 
-**功能**: 获取环境变量  
-**参数**:
+**功能**: 获取环境变量
 
-- `key` (string, 可选) - 环境变量名，省略则返回所有环境变量
-- `defaultValue` (string, 可选) - 默认值
-  **返回值**: 环境变量值或环境变量对象
+#### setEnv(key: string, value: string): boolean
 
-### setEnv(key: string, value: string): boolean
+**功能**: 设置环境变量
 
-**功能**: 设置环境变量  
-**参数**:
+#### which(command: string): string|null
 
-- `key` (string) - 环境变量名
-- `value` (string) - 环境变量值
-  **返回值**: boolean - 是否成功
+**功能**: 查找命令路径
 
-### which(command: string): string|null
+#### commandExists(command: string): boolean
 
-**功能**: 查找命令路径  
-**参数**: `command` (string) - 命令名称  
-**返回值**: string|null - 命令完整路径
-
-### commandExists(command: string): boolean
-
-**功能**: 检查命令是否存在  
-**参数**: `command` (string) - 命令名称  
-**返回值**: boolean
+**功能**: 检查命令是否存在
 
 ---
 
@@ -1864,7 +1743,7 @@ time.UNIT.HOUR; // 小时
 
 - 支持相对路径和绝对路径
 - Windows 和 Unix 路径自动处理
-- 建议使用 `path` 模块规范化路径
+- 建议使用 `utils/path` 模块规范化路径
 
 ### 数据序列化
 
@@ -1879,9 +1758,9 @@ time.UNIT.HOUR; // 小时
 ### 完整 Web 服务器示例
 
 ```javascript
-const server = require("httpserver");
-const fs = require("fs");
-const redis = require("redis");
+const { server } = require('http');
+const fs = require('fs');
+const { redis } = require('db');
 
 const app = server.createServer();
 const redisClient = redis.createClient({ host: "localhost" });
@@ -1915,61 +1794,10 @@ app.listen("3000").then(() => {
 });
 ```
 
-### HTTPS 服务器示例
-
-```javascript
-const server = require("httpserver");
-
-const app = server.createServer();
-
-// 添加路由
-app.get("/", (req, res) => {
-  res.html("<h1>🔐 Welcome to HTTPS Server!</h1>");
-});
-
-app.get("/api/secure-data", (req, res) => {
-  res.json({
-    message: "This is secure data",
-    encrypted: true,
-    timestamp: Date.now(),
-  });
-});
-
-// 启动 HTTPS 服务器
-app
-  .listenTLS("8443", "./certs/server.crt", "./certs/server.key")
-  .then(() => {
-    console.log("HTTPS Server running on https://localhost:8443");
-  })
-  .catch((err) => {
-    console.error("Failed to start HTTPS server:", err.message);
-  });
-```
-
-### 混合 HTTP/HTTPS 服务器
-
-```javascript
-const server = require("httpserver");
-
-// HTTP 服务器
-const httpApp = server.createServer();
-httpApp.get("/", (req, res) => {
-  res.redirect("https://localhost:8443", 301);
-});
-httpApp.listen("8080");
-
-// HTTPS 服务器
-const httpsApp = server.createServer();
-httpsApp.get("/", (req, res) => {
-  res.html("<h1>🔒 Secure Connection</h1>");
-});
-httpsApp.listenTLS("8443", "./certs/server.crt", "./certs/server.key");
-```
-
 ### 数据库操作示例
 
 ```javascript
-const sqlite = require("sqlite");
+const { sqlite } = require('db');
 
 async function main() {
   const db = await sqlite.open("./app.db");
@@ -2012,44 +1840,64 @@ async function main() {
 main().catch(console.error);
 ```
 
-### Raft 分布式一致性示例
+### 加密和压缩示例
 
 ```javascript
-const raft = require("raft");
+const { crypto, compression } = require('utils');
 
-// 创建 FSM
-const fsm = {
-  data: {},
-  apply: function (logData) {
-    const cmd = JSON.parse(logData);
-    if (cmd.op === "set") {
-      this.data[cmd.key] = cmd.value;
-    }
-  },
-  snapshot: function () {
-    return this.data;
-  },
-  restore: function (snapshotData) {
-    this.data = JSON.parse(snapshotData);
-  },
-};
+const data = "Hello, World!";
+const key = "my-super-secret-key-32-bytes!!";
 
-// 创建节点
-const node = raft.createNode({
-  nodeID: "node1",
-  advertiseAddr: "127.0.0.1:9001",
-  dataDir: "./raft_data",
-  fsm: fsm,
+// 压缩数据
+const compressed = compression.gzipCompress(data);
+console.log('Compressed size:', compressed.length);
+
+// 加密数据
+const encrypted = crypto.aesEncrypt(compressed, key);
+console.log('Encrypted:', encrypted.substring(0, 50) + '...');
+
+// 解密
+const decrypted = crypto.aesDecrypt(encrypted, key);
+const original = compression.gzipDecompress(decrypted);
+console.log('Original:', original);
+```
+
+### WebSocket 示例
+
+```javascript
+const { server } = require('http');
+const { websocket } = require('net');
+
+const app = server.createServer();
+
+// WebSocket 路由
+app.ws('/chat', (socket) => {
+  console.log('新客户端连接');
+
+  socket.on('message', (data) => {
+    console.log('收到消息:', data);
+    socket.send('服务器收到: ' + data);
+  });
+
+  socket.on('close', () => {
+    console.log('连接关闭');
+  });
 });
 
-// 启动
-node.bootstrap();
+app.listen('3000').then(() => {
+  console.log('服务器启动在 http://localhost:3000');
+});
 
-// 应用日志
-setTimeout(async () => {
-  await node.apply({ op: "set", key: "foo", value: "bar" });
-  console.log("Applied!");
-}, 3000);
+// 客户端连接
+websocket.connect('ws://localhost:3000/chat').then((client) => {
+  console.log('已连接到服务器');
+
+  client.on('message', (data) => {
+    console.log('收到:', data);
+  });
+
+  client.send('Hello!');
+});
 ```
 
 ---

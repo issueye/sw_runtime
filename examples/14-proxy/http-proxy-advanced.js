@@ -1,5 +1,5 @@
 // HTTP 代理服务器高级示例 - 自定义请求和响应
-const proxy = require('proxy');
+const { proxy } = require('net');
 
 console.log('=== Advanced HTTP Proxy Server Demo ===\n');
 

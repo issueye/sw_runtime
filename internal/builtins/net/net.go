@@ -1,4 +1,4 @@
-package builtins
+package net
 
 import (
 	"bufio"
@@ -628,8 +628,8 @@ func (n *NetModule) getNextConnID() int {
 	return n.connID
 }
 
-// closeAllTCPServers 关闭所有注册的 TCP 服务器
-func closeAllTCPServers() {
+// CloseAllTCPServers 关闭所有注册的 TCP 服务器
+func CloseAllTCPServers() {
 	tcpServerRegistry.Lock()
 	servers := make([]*TCPServer, 0, len(tcpServerRegistry.servers))
 	for s := range tcpServerRegistry.servers {

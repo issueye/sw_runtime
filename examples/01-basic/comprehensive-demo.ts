@@ -4,11 +4,11 @@ console.log('=== SW Runtime 综合功能演示 ===');
 
 // 导入所有模块
 const http = require('http/client');
-const redis = require('redis');
-const crypto = require('crypto');
-const compression = require('compression');
+const { redis } = require('db');
+const { crypto } = require('utils');
+const { compression } = require('utils');
 const fs = require('fs');
-const path = require('path');
+const { path } = require('utils');
 
 // 1. 数据获取和处理流水线
 async function dataProcessingPipeline() {

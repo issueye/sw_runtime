@@ -14,16 +14,16 @@ func TestModuleSystemBasicRequire(t *testing.T) {
 
 	// 测试内置模块加载
 	code := `
-		const path = require('path');
-		const fs = require('fs');
-		const crypto = require('crypto');
-		
+		const path = require('utils/path');
+		const fs = require('fs/fs');
+		const crypto = require('utils/crypto');
+
 		let moduleTestResults = {
 			pathLoaded: typeof path === 'object' && path !== null,
 			fsLoaded: typeof fs === 'object' && fs !== null,
 			cryptoLoaded: typeof crypto === 'object' && crypto !== null
 		};
-		
+
 		global.moduleTestResults = moduleTestResults;
 	`
 
@@ -47,9 +47,9 @@ func TestModuleSystemFileModule(t *testing.T) {
 		exports.hello = function(name) {
 			return "Hello, " + name + "!";
 		};
-		
+
 		exports.version = "1.0.0";
-		
+
 		exports.data = {
 			items: [1, 2, 3],
 			config: { debug: true }
@@ -70,7 +70,7 @@ func TestModuleSystemFileModule(t *testing.T) {
 
 	code := `
 		const testModule = require('./testmodule.js');
-		
+
 		let fileModuleResults = {
 			hasHello: typeof testModule.hello === 'function',
 			hasVersion: typeof testModule.version === 'string',
@@ -78,11 +78,11 @@ func TestModuleSystemFileModule(t *testing.T) {
 			helloResult: null,
 			versionValue: testModule.version
 		};
-		
+
 		if (fileModuleResults.hasHello) {
 			fileModuleResults.helloResult = testModule.hello('World');
 		}
-		
+
 		global.fileModuleResults = fileModuleResults;
 	`
 
@@ -107,23 +107,23 @@ func TestModuleSystemTypeScriptModule(t *testing.T) {
 			name: string;
 			age: number;
 		}
-		
+
 		export function createUser(name: string, age: number): User {
 			return { name, age };
 		}
-		
+
 		export const defaultUser: User = {
 			name: "Anonymous",
 			age: 0
 		};
-		
+
 		export class UserManager {
 			private users: User[] = [];
-			
+
 			addUser(user: User): void {
 				this.users.push(user);
 			}
-			
+
 			getUserCount(): number {
 				return this.users.length;
 			}
@@ -144,7 +144,7 @@ func TestModuleSystemTypeScriptModule(t *testing.T) {
 
 	code := `
 		const tsModule = require('./tsmodule.ts');
-		
+
 		let tsModuleResults = {
 			hasCreateUser: typeof tsModule.createUser === 'function',
 			hasDefaultUser: typeof tsModule.defaultUser === 'object',
@@ -152,17 +152,17 @@ func TestModuleSystemTypeScriptModule(t *testing.T) {
 			userCreated: null,
 			managerWorks: false
 		};
-		
+
 		if (tsModuleResults.hasCreateUser) {
 			tsModuleResults.userCreated = tsModule.createUser('Alice', 25);
 		}
-		
+
 		if (tsModuleResults.hasUserManager) {
 			const manager = new tsModule.UserManager();
 			manager.addUser({ name: 'Bob', age: 30 });
 			tsModuleResults.managerWorks = manager.getUserCount() === 1;
 		}
-		
+
 		global.tsModuleResults = tsModuleResults;
 	`
 
@@ -186,7 +186,7 @@ func TestModuleSystemCircularDependency(t *testing.T) {
 
 	moduleAContent := `
 		const moduleB = require('./moduleB.js');
-		
+
 		exports.name = 'Module A';
 		exports.getB = function() {
 			return moduleB.name;
@@ -195,7 +195,7 @@ func TestModuleSystemCircularDependency(t *testing.T) {
 
 	moduleBContent := `
 		const moduleA = require('./moduleA.js');
-		
+
 		exports.name = 'Module B';
 		exports.getA = function() {
 			return moduleA.name;
@@ -225,17 +225,17 @@ func TestModuleSystemCircularDependency(t *testing.T) {
 			moduleALoaded: false,
 			moduleBLoaded: false
 		};
-		
+
 		try {
 			const moduleA = require('./moduleA.js');
 			circularResults.moduleALoaded = typeof moduleA === 'object';
-			
+
 			const moduleB = require('./moduleB.js');
 			circularResults.moduleBLoaded = typeof moduleB === 'object';
 		} catch (e) {
 			circularResults.error = e.message;
 		}
-		
+
 		global.circularResults = circularResults;
 	`
 
@@ -258,11 +258,11 @@ func TestModuleSystemCaching(t *testing.T) {
 	moduleContent := `
 		let loadCount = 0;
 		loadCount++;
-		
+
 		exports.getLoadCount = function() {
 			return loadCount;
 		};
-		
+
 		exports.increment = function() {
 			loadCount++;
 		};
@@ -284,20 +284,20 @@ func TestModuleSystemCaching(t *testing.T) {
 		// 第一次加载
 		const cached1 = require('./cached.js');
 		const firstLoadCount = cached1.getLoadCount();
-		
+
 		// 增加计数
 		cached1.increment();
-		
+
 		// 第二次加载（应该使用缓存）
 		const cached2 = require('./cached.js');
 		const secondLoadCount = cached2.getLoadCount();
-		
+
 		let cachingResults = {
 			firstLoadCount: firstLoadCount,
 			secondLoadCount: secondLoadCount,
 			sameInstance: cached1 === cached2
 		};
-		
+
 		global.cachingResults = cachingResults;
 	`
 
@@ -340,7 +340,7 @@ func TestModuleSystemDynamicImport(t *testing.T) {
 			message: null,
 			error: null
 		};
-		
+
 		// 使用 Promise 包装动态导入
 		new Promise((resolve, reject) => {
 			try {

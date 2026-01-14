@@ -1,6 +1,6 @@
 // compression-demo.ts - 压缩功能演示
 
-const compression = require('compression');
+const { compression } = require('utils');
 
 console.log('=== 压缩功能演示 ===');
 

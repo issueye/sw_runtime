@@ -1,8 +1,8 @@
 // WebSocket 端到端集成测试
 // 同时启动服务器和客户端
 
-const server = require('httpserver');
-const ws = require('websocket');
+const { server } = require('http');
+const { websocket } = require('net');
 
 // 创建服务器
 const app = server.createServer();
@@ -40,7 +40,7 @@ app.listen('38400').then(() => {
         console.log('\n正在连接客户端...');
         
         // 连接到服务器
-        ws.connect('ws://localhost:38400/echo').then(client => {
+        websocket.connect('ws://localhost:38400/echo').then(client => {
             console.log('✅ 客户端已连接');
             
             // 监听消息

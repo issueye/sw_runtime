@@ -2,7 +2,7 @@
 console.log("=== HTTP 服务器文件服务示例 ===\n");
 
 const server = require("http/server");
-const path = require("path");
+const { path } = require("utils");
 
 const app = server.createServer();
 

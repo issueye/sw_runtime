@@ -62,7 +62,7 @@ sw_runtime run examples/05-http-client/http-interceptors-demo.js
 ## 示例代码
 
 ```javascript
-const http = require('http');
+const http = require('http/client');
 
 // GET 请求
 http.get('https://api.example.com/users')

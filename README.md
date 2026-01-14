@@ -20,10 +20,12 @@ sw_runtime/
 │   │   └── transpiler.go     # 模块编译器
 │   └── builtins/             # 内置模块
 │       ├── manager.go        # 模块管理器
-│       ├── path.go           # 路径操作
-│       ├── fs.go             # 文件系统
-│       ├── crypto.go         # 加密功能
-│       └── compression.go    # 压缩功能
+│       ├── http/             # HTTP 客户端和服务器
+│       ├── db/               # Redis 和 SQLite
+│       ├── utils/            # 路径、时间、加密、压缩、工具
+│       ├── net/              # TCP/UDP、WebSocket、代理
+│       ├── fs/               # 文件系统和操作系统
+│       └── config/           # 配置管理
 ├── examples/                  # 示例文件
 │   ├── 01-basic/            # 基础示例（TypeScript、ES6、模块）
 │   ├── 02-crypto/           # 加密功能演示
@@ -64,7 +66,7 @@ sw_runtime/
    - Promise 支持
    - 异步模块加载
 
-### 🔐 加密模块 (`crypto`)
+### 🔐 加密模块 (`utils/crypto`)
 
 - **哈希函数**: MD5, SHA1, SHA256, SHA512
 - **编解码**: Base64, Hex
@@ -72,7 +74,7 @@ sw_runtime/
 - **随机数生成**: 安全随机字节
 
 ```javascript
-const crypto = require('crypto');
+const { crypto } = require('utils');
 
 // 哈希
 console.log(crypto.sha256('hello')); // 哈希值
@@ -89,14 +91,14 @@ const decrypted = crypto.aesDecrypt(encrypted, 'key');
 const random = crypto.randomBytes(16);
 ```
 
-### 🗜️ 压缩模块 (`compression` / `zlib`)
+### 🗜️ 压缩模块 (`utils/compression`)
 
 - **Gzip 压缩/解压**
 - **Zlib 压缩/解压**
 - **高性能压缩算法**
 
 ```javascript
-const compression = require('compression');
+const { compression } = require('utils');
 
 // Gzip 压缩
 const compressed = compression.gzipCompress(data);
@@ -107,7 +109,7 @@ const zlibCompressed = compression.zlibCompress(data);
 const zlibDecompressed = compression.zlibDecompress(zlibCompressed);
 ```
 
-### 🌐 HTTP 客户端模块 (`http`)
+### 🌐 HTTP 客户端模块 (`http/client`)
 
 - **HTTP 方法**: GET, POST, PUT, DELETE, PATCH, HEAD, OPTIONS
 - **请求配置**: 请求头、参数、超时、认证
@@ -115,29 +117,29 @@ const zlibDecompressed = compression.zlibDecompress(zlibCompressed);
 - **Promise 支持**: 所有请求返回 Promise
 
 ```javascript
-const http = require('http');
+const { client } = require('http');
 
 // GET 请求
-http.get('https://api.example.com/users')
+client.get('https://api.example.com/users')
   .then(response => {
     console.log('状态码:', response.status);
     console.log('数据:', response.data);
   });
 
 // POST 请求
-http.post('https://api.example.com/users', {
+client.post('https://api.example.com/users', {
   data: { name: 'John', email: 'john@example.com' },
   headers: { 'Content-Type': 'application/json' }
 })
   .then(response => console.log('创建成功:', response.data));
 
 // 自定义客户端
-const client = http.createClient({ timeout: 10 });
-client.get('https://api.example.com/data')
+const httpClient = client.createClient({ timeout: 10 });
+httpClient.get('https://api.example.com/data')
   .then(response => console.log(response.data));
 ```
 
-### 🚀 HTTP/HTTPS 服务器模块 (`httpserver` / `server`)
+### 🚀 HTTP/HTTPS 服务器模块 (`http/server`)
 
 - **路由系统**: 支持 GET, POST, PUT, DELETE 等 HTTP 方法
 - **中间件支持**: Express 风格的中间件链
@@ -150,7 +152,7 @@ client.get('https://api.example.com/data')
 - **Promise 支持**: 异步启动和关闭
 
 ```javascript
-const server = require('httpserver');
+const { server } = require('http');
 
 // 创建服务器（使用默认配置）
 const app = server.createServer();
@@ -211,7 +213,7 @@ app.ws('/chat', (ws) => {
     console.log('收到消息:', data);
     ws.send('回复: ' + data);
   });
-  
+
   ws.on('close', () => {
     console.log('连接关闭');
   });
@@ -230,7 +232,7 @@ app.listenTLS('8443', './certs/server.crt', './certs/server.key')
   });
 ```
 
-### 🔌 WebSocket 客户端模块 (`websocket`/`ws`)
+### 🔌 WebSocket 客户端模块 (`net/websocket`)
 
 - **连接管理**: 支持 ws:// 和 wss:// 协议
 - **消息发送**: 文本、JSON、二进制消息
@@ -239,58 +241,58 @@ app.listenTLS('8443', './certs/server.crt', './certs/server.key')
 - **Promise API**: 异步连接支持
 
 ```javascript
-const ws = require('websocket');
+const { websocket } = require('net');
 
 // 连接到 WebSocket 服务器
-ws.connect('ws://localhost:8080/chat', {
+websocket.connect('ws://localhost:8080/chat', {
   timeout: 5000,  // 连接超时
   headers: {      // 自定义请求头
     'User-Agent': 'SW-Runtime-Client'
   }
 }).then(client => {
   console.log('已连接到服务器');
-  
+
   // 监听消息
   client.on('message', (data) => {
     console.log('收到消息:', data);
   });
-  
+
   // 监听关闭事件
   client.on('close', () => {
     console.log('连接已关闭');
   });
-  
+
   // 监听错误事件
   client.on('error', (err) => {
     console.error('WebSocket 错误:', err.message);
   });
-  
+
   // 发送文本消息
   client.send('Hello Server!');
-  
+
   // 发送 JSON 消息
   client.sendJSON({
     type: 'greeting',
     message: 'Hello from client!',
     timestamp: Date.now()
   });
-  
+
   // 发送二进制消息
   client.sendBinary(new Uint8Array([1, 2, 3, 4]));
-  
+
   // 发送 ping
   client.ping('heartbeat');
-  
+
   // 检查连接状态
   if (!client.isClosed()) {
     console.log('连接正常');
   }
-  
+
   // 关闭连接
   setTimeout(() => {
     client.close();
   }, 5000);
-  
+
 }).catch(err => {
   console.error('连接失败:', err.message);
 });
@@ -322,7 +324,7 @@ client.on(event, handler)      // 注册事件监听器
 - 'pong': 收到 pong 响应
 ```
 
-### 🌐 网络模块 (`net`)
+### 🌐 网络模块 (`net/net`)
 
 - **TCP 服务器/客户端**: 支持 TCP 连接和通信
 - **UDP 套接字**: 支持 UDP 数据包收发
@@ -330,19 +332,19 @@ client.on(event, handler)      // 注册事件监听器
 - **Promise 支持**: 所有异步操作返回 Promise
 
 ```javascript
-const net = require('net');
+const { net } = require('net');
 
 // TCP 服务器
 const tcpServer = net.createTCPServer();
 
 tcpServer.on('connection', (socket) => {
   console.log('新客户端连接:', socket.remoteAddress);
-  
+
   socket.on('data', (data) => {
     console.log('收到:', data);
     socket.write('回显: ' + data);
   });
-  
+
   socket.on('close', () => {
     console.log('客户端断开');
   });
@@ -356,11 +358,11 @@ tcpServer.listen('8080').then(() => {
 net.connectTCP('localhost:8080', { timeout: 5000 })
   .then(socket => {
     console.log('已连接到服务器');
-    
+
     socket.on('data', (data) => {
       console.log('收到:', data);
     });
-    
+
     socket.write('Hello Server!\n');
   });
 
@@ -369,7 +371,7 @@ const udpSocket = net.createUDPSocket('udp4');
 
 udpSocket.on('message', (msg, rinfo) => {
   console.log('收到来自', rinfo.address + ':' + rinfo.port, '的消息:', msg);
-  
+
   // 回复客户端
   udpSocket.send('回复: ' + msg, rinfo.port.toString(), rinfo.address);
 });
@@ -384,7 +386,7 @@ udpClient.send('Hello UDP!\n', '9090', 'localhost')
   .then(() => console.log('消息已发送'));
 ```
 
-### 🔄 代理模块 (`proxy`)
+### 🔄 代理模块 (`net/proxy`)
 
 - **HTTP 代理**: 反向代理 HTTP/HTTPS 请求
 - **TCP 代理**: 透明 TCP 连接转发
@@ -393,7 +395,7 @@ udpClient.send('Hello UDP!\n', '9090', 'localhost')
 - **监控统计**: 请求/响应拦截、数据传输统计
 
 ```javascript
-const proxy = require('proxy');
+const { proxy } = require('net');
 
 // HTTP 代理服务器
 const httpProxy = proxy.createHTTPProxy('https://api.github.com');
@@ -434,7 +436,7 @@ tcpProxy.listen('6380').then(() => {
 });
 ```
 
-### 🔴 Redis 客户端模块 (`redis`)
+### 🔴 Redis 客户端模块 (`db/redis`)
 
 - **连接管理**: 支持连接配置、认证、数据库选择
 - **数据类型**: 字符串、哈希、列表、集合、有序集合
@@ -442,7 +444,7 @@ tcpProxy.listen('6380').then(() => {
 - **Promise 支持**: 所有操作返回 Promise
 
 ```javascript
-const redis = require('redis');
+const { redis } = require('db');
 
 // 创建连接
 const client = redis.createClient({
@@ -472,7 +474,7 @@ await client.sadd('tags', 'javascript', 'redis');
 const tags = await client.smembers('tags');
 ```
 
-### 🗄️ SQLite 数据库模块 (`sqlite`)
+### 🗄️ SQLite 数据库模块 (`db/sqlite`)
 
 - **数据库连接**: 内存数据库、文件数据库
 - **SQL 操作**: 查询、插入、更新、删除
@@ -481,7 +483,7 @@ const tags = await client.smembers('tags');
 - **Promise 支持**: 所有操作返回 Promise
 
 ```javascript
-const sqlite = require('sqlite');
+const { sqlite } = require('db');
 
 // 打开数据库
 const db = await sqlite.open('./database.db');
@@ -499,7 +501,7 @@ await db.exec(`
 `);
 
 // 插入数据
-const result = await db.run('INSERT INTO users (name, email, age) VALUES (?, ?, ?)', 
+const result = await db.run('INSERT INTO users (name, email, age) VALUES (?, ?, ?)',
   ['张三', 'zhangsan@example.com', 25]);
 console.log('插入ID:', result.lastInsertId);
 
@@ -513,7 +515,7 @@ console.log('用户列表:', users);
 
 // 使用事务
 await db.transaction(async (tx) => {
-  await tx.run('INSERT INTO users (name, email, age) VALUES (?, ?, ?)', 
+  await tx.run('INSERT INTO users (name, email, age) VALUES (?, ?, ?)',
     ['李四', 'lisi@example.com', 30]);
   await tx.run('UPDATE users SET age = ? WHERE name = ?', [26, '张三']);
 });
@@ -531,14 +533,14 @@ const schema = await db.schema('users');
 await db.close();
 ```
 
-### 📁 文件系统模块 (`fs`)
+### 📁 文件系统模块 (`fs/fs`)
 
 - **同步操作**: `readFileSync`, `writeFileSync`, `existsSync`, `statSync`, `mkdirSync`, `readdirSync`, `unlinkSync`, `rmdirSync`, `copyFileSync`, `renameSync`
 - **异步操作**: `readFile`, `writeFile`, `stat`, `mkdir`, `readdir`, `unlink`, `rmdir`, `copyFile`, `rename`
 - **Promise 支持**: 所有异步操作返回 Promise
 
 ```javascript
-const fs = require('fs');
+const { fs } = require('fs');
 
 // 同步操作
 fs.writeFileSync('file.txt', 'content');
@@ -550,20 +552,93 @@ fs.writeFile('file.txt', 'content')
   .then(content => console.log(content));
 ```
 
-### 🛤️ 路径模块 (`path`)
+### 🛤️ 路径模块 (`utils/path`)
 
 - **路径操作**: `join`, `resolve`, `dirname`, `basename`, `extname`
 - **路径判断**: `isAbsolute`, `relative`, `normalize`
 - **跨平台支持**
 
 ```javascript
-const path = require('path');
+const { path } = require('utils');
 
 console.log(path.join('a', 'b', 'c'));        // a/b/c
 console.log(path.resolve('./test'));          // 绝对路径
 console.log(path.dirname('/a/b/c.js'));       // /a/b
 console.log(path.basename('/a/b/c.js'));      // c.js
 console.log(path.extname('test.js'));         // .js
+```
+
+### 🖥️ 操作系统模块 (`fs/os`)
+
+- **系统信息**: `hostname`, `platform`, `arch`, `type`, `release`
+- **目录**: `homedir`, `tmpdir`
+- **内存**: `totalmem`, `freemem`
+- **CPU**: `cpus`
+- **网络**: `networkInterfaces`
+
+```javascript
+const { os } = require('fs');
+
+console.log('Hostname:', os.hostname());
+console.log('Platform:', os.platform());
+console.log('Arch:', os.arch());
+console.log('CPU Cores:', os.cpus().length);
+console.log('Total Memory:', os.totalmem());
+```
+
+### ⚙️ 进程模块 (`process/process`)
+
+- **进程信息**: `pid`, `platform`, `arch`, `versions`, `argv`
+- **环境变量**: `env`
+- **进程控制**: `cwd`, `chdir`, `exit`, `kill`
+- **性能监控**: `uptime`, `memoryUsage`, `hrtime`
+
+```javascript
+const { process } = require('process');
+
+console.log('PID:', process.pid);
+console.log('Platform:', process.platform);
+console.log('Arguments:', process.argv);
+console.log('Environment:', process.env);
+
+// 切换目录
+process.chdir('/tmp');
+
+// 退出进程
+// process.exit(0);
+
+// 内存使用
+console.log('Memory:', process.memoryUsage());
+```
+
+### ⚡ 进程执行模块 (`process/exec`)
+
+- **命令执行**: 同步/异步执行外部命令
+- **环境变量**: 获取和设置环境变量
+- **命令查找**: 查找命令路径
+
+```javascript
+const { exec } = require('process');
+
+// 异步执行命令
+const result = await exec.exec('ls', ['-la']);
+console.log('stdout:', result.stdout);
+console.log('stderr:', result.stderr);
+console.log('exitCode:', result.exitCode);
+
+// 同步执行命令
+const syncResult = exec.execSync('pwd');
+console.log('Current dir:', syncResult.stdout);
+
+// 获取环境变量
+const path = exec.getEnv('PATH', '/default/path');
+
+// 设置环境变量
+exec.setEnv('MY_VAR', 'my_value');
+
+// 查找命令
+const goPath = exec.which('go');
+console.log('Go path:', goPath);
 ```
 
 ## 🚀 使用示例
@@ -646,10 +721,10 @@ sw_runtime bundle --help
 ### HTTP 客户端示例
 
 ```javascript
-const http = require('http');
+const { client } = require('http');
 
 // 获取用户数据
-http.get('https://jsonplaceholder.typicode.com/users/1')
+client.get('https://jsonplaceholder.typicode.com/users/1')
   .then(response => {
     console.log('用户信息:', response.data);
     console.log('状态码:', response.status);
@@ -659,7 +734,7 @@ http.get('https://jsonplaceholder.typicode.com/users/1')
   });
 
 // 创建新用户
-http.post('https://jsonplaceholder.typicode.com/users', {
+client.post('https://jsonplaceholder.typicode.com/users', {
   data: {
     name: 'John Doe',
     email: 'john@example.com'
@@ -676,7 +751,7 @@ http.post('https://jsonplaceholder.typicode.com/users', {
 ### Redis 客户端示例
 
 ```javascript
-const redis = require('redis');
+const { redis } = require('db');
 
 // 连接 Redis
 const client = redis.createClient({
@@ -697,7 +772,7 @@ async function redisExample() {
     name: 'John Doe',
     email: 'john@example.com'
   };
-  
+
   await client.setJSON('user:1', userData);
   const user = await client.getJSON('user:1');
   console.log('用户数据:', user);

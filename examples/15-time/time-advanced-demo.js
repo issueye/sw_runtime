@@ -1,5 +1,5 @@
 // 时间模块高级示例 - 实际应用场景
-const time = require('time');
+const { time } = require('utils');
 
 console.log('=== Time Advanced Demo ===\n');
 

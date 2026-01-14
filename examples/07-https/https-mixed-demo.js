@@ -1,13 +1,13 @@
 // 混合 HTTP/HTTPS 服务器示例
-const server = require('httpserver');
+const server = require("http/server");
 
-console.log('=== Mixed HTTP/HTTPS Server Example ===\n');
+console.log("=== Mixed HTTP/HTTPS Server Example ===\n");
 
 // 创建 HTTP 服务器
 const httpApp = server.createServer();
 
-httpApp.get('/', (req, res) => {
-    res.html(`
+httpApp.get("/", (req, res) => {
+  res.html(`
         <!DOCTYPE html>
         <html>
         <head>
@@ -22,15 +22,15 @@ httpApp.get('/', (req, res) => {
     `);
 });
 
-httpApp.get('/redirect-to-https', (req, res) => {
-    res.redirect('https://localhost:8443', 301);
+httpApp.get("/redirect-to-https", (req, res) => {
+  res.redirect("https://localhost:8443", 301);
 });
 
 // 创建 HTTPS 服务器
 const httpsApp = server.createServer();
 
-httpsApp.get('/', (req, res) => {
-    res.html(`
+httpsApp.get("/", (req, res) => {
+  res.html(`
         <!DOCTYPE html>
         <html>
         <head>
@@ -56,32 +56,39 @@ httpsApp.get('/', (req, res) => {
     `);
 });
 
-httpsApp.get('/api/secure-data', (req, res) => {
-    res.json({
-        message: 'This is secure data',
-        encrypted: true,
-        data: {
-            secret: 'Only visible over HTTPS',
-            timestamp: Date.now()
-        }
-    });
+httpsApp.get("/api/secure-data", (req, res) => {
+  res.json({
+    message: "This is secure data",
+    encrypted: true,
+    data: {
+      secret: "Only visible over HTTPS",
+      timestamp: Date.now(),
+    },
+  });
 });
 
 // 启动 HTTP 服务器
-httpApp.listen('8080').then(() => {
-    console.log('✓ HTTP  Server listening on http://localhost:8080');
+httpApp.listen("8080").then(() => {
+  console.log("✓ HTTP  Server listening on http://localhost:8080");
 });
 
 // 启动 HTTPS 服务器
-httpsApp.listenTLS('8443', './examples/certs/server.crt', './examples/certs/server.key').then(() => {
-    console.log('✓ HTTPS Server listening on https://localhost:8443');
-    console.log('\n📝 Both servers are running:');
-    console.log('   HTTP:  http://localhost:8080');
-    console.log('   HTTPS: https://localhost:8443\n');
-}).catch(err => {
-    console.error('Failed to start HTTPS server:', err.message);
-});
+httpsApp
+  .listenTLS(
+    "8443",
+    "./examples/certs/server.crt",
+    "./examples/certs/server.key",
+  )
+  .then(() => {
+    console.log("✓ HTTPS Server listening on https://localhost:8443");
+    console.log("\n📝 Both servers are running:");
+    console.log("   HTTP:  http://localhost:8080");
+    console.log("   HTTPS: https://localhost:8443\n");
+  })
+  .catch((err) => {
+    console.error("Failed to start HTTPS server:", err.message);
+  });
 
 setTimeout(() => {
-    console.log('Servers are running... Press Ctrl+C to stop');
+  console.log("Servers are running... Press Ctrl+C to stop");
 }, 2000);

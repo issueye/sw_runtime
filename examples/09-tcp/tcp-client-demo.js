@@ -1,5 +1,5 @@
 // TCP 客户端示例
-const net = require('net');
+const { net } = require('net');
 
 console.log('=== TCP Client Example ===\n');
 
