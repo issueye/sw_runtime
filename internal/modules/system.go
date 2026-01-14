@@ -131,6 +131,19 @@ func (ms *System) resolveModule(id string, parentPath string) (string, error) {
 
 // LoadModule 加载模块
 func (ms *System) LoadModule(id string, parentPath string) (*Module, error) {
+	// 检查是否是命名空间模块 (http/server 格式)
+	if strings.Contains(id, "/") {
+		if subModule, exists := ms.builtinManager.GetNamespacedModule(id); exists {
+			module := &Module{
+				ID:       id,
+				Filename: id,
+				Exports:  subModule.GetModule(),
+				Loaded:   true,
+			}
+			return module, nil
+		}
+	}
+
 	resolvedPath, err := ms.resolveModule(id, parentPath)
 	if err != nil {
 		return nil, err
