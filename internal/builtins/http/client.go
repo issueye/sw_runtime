@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 	"time"
 
@@ -122,6 +123,127 @@ type HTTPResponse struct {
 	Text       string                 `json:"text"`
 	URL        string                 `json:"url"`
 	Config     map[string]interface{} `json:"config"`
+	Stream     *StreamResponse        `json:"-"`
+}
+
+// StreamResponse 流式响应结构（用于大文件下载）
+type StreamResponse struct {
+	vm        *goja.Runtime
+	Body      io.ReadCloser
+	Headers   map[string]string
+	URL       string
+	Status    int
+	StatusText string
+}
+
+// Read 读取流式数据
+func (s *StreamResponse) Read(call goja.FunctionCall) goja.Value {
+	if len(call.Arguments) > 0 {
+		size := call.Arguments[0].ToInteger()
+		buf := make([]byte, size)
+		n, err := s.Body.Read(buf)
+		if err != nil && err != io.EOF {
+			panic(s.vm.NewGoError(err))
+		}
+		if n == 0 {
+			return goja.Undefined()
+		}
+		return s.vm.ToValue(string(buf[:n]))
+	}
+	// 默认读取一块数据
+	buf := make([]byte, 4096)
+	n, err := s.Body.Read(buf)
+	if err != nil && err != io.EOF {
+		panic(s.vm.NewGoError(err))
+	}
+	if n == 0 {
+		return goja.Undefined()
+	}
+	return s.vm.ToValue(string(buf[:n]))
+}
+
+// Close 关闭流
+func (s *StreamResponse) Close(call goja.FunctionCall) goja.Value {
+	s.Body.Close()
+	return goja.Undefined()
+}
+
+// PipeToFile 将流写入文件
+func (s *StreamResponse) PipeToFile(call goja.FunctionCall) goja.Value {
+	if len(call.Arguments) == 0 {
+		panic(s.vm.NewGoError(fmt.Errorf("file path required")))
+	}
+	filePath := call.Arguments[0].String()
+
+	file, err := os.Create(filePath)
+	if err != nil {
+		panic(s.vm.NewGoError(err))
+	}
+	defer file.Close()
+
+	_, err = io.Copy(file, s.Body)
+	if err != nil {
+		panic(s.vm.NewGoError(err))
+	}
+	return goja.Undefined()
+}
+
+// Copy 复制流到目标（支持自定义 writer）
+func (s *StreamResponse) Copy(call goja.FunctionCall) goja.Value {
+	if len(call.Arguments) == 0 {
+		panic(s.vm.NewGoError(fmt.Errorf("destination required")))
+	}
+
+	dest := call.Arguments[0].ToObject(s.vm)
+	if dest == nil {
+		panic(s.vm.NewGoError(fmt.Errorf("destination must be an object with write method")))
+	}
+
+	// 检查是否有 write 方法
+	writeFn := dest.Get("write")
+	if writeFn == nil || writeFn == goja.Undefined() {
+		panic(s.vm.NewGoError(fmt.Errorf("destination must have a write method")))
+	}
+
+	writeCallable, ok := goja.AssertFunction(writeFn)
+	if !ok {
+		panic(s.vm.NewGoError(fmt.Errorf("write must be a function")))
+	}
+
+	// 使用 io.Copy 复制数据，通过 writer 回调处理
+	writer := &callbackWriter{
+		vm:   s.vm,
+		fn:   writeCallable,
+		dest: dest,
+	}
+
+	written, err := io.Copy(writer, s.Body)
+	if err != nil {
+		panic(s.vm.NewGoError(err))
+	}
+
+	return s.vm.ToValue(written)
+}
+
+// callbackWriter 包装 goja 函数为 io.Writer
+type callbackWriter struct {
+	vm   *goja.Runtime
+	fn   goja.Callable
+	dest *goja.Object
+}
+
+func (w *callbackWriter) Write(p []byte) (n int, err error) {
+	// 跳过空数据
+	if len(p) == 0 {
+		return 0, nil
+	}
+	// 将字节切片转换为 JS 字符串
+	data := string(p)
+	_, err = w.fn(goja.Undefined(), w.vm.ToValue(data))
+	if err != nil {
+		return 0, err
+	}
+	return len(p), nil
 }
 
 // HTTPConfig HTTP 请求配置
@@ -136,6 +258,8 @@ type HTTPConfig struct {
 	Proxy             string                 `json:"proxy"`
 	Cookies           map[string]string      `json:"cookies"`
 	Config            map[string]interface{} `json:"config"`
+	ResponseType      string                 `json:"responseType"` // "json" | "text" | "stream"
+	FilePath          string                 `json:"filePath"`     // 上传文件路径
 	BeforeRequest     goja.Callable          `json:"-"`
 	AfterResponse     goja.Callable          `json:"-"`
 	TransformRequest  goja.Callable          `json:"-"`
@@ -214,6 +338,14 @@ func (h *HTTPModule) parseConfig(args []goja.Value) *HTTPConfig {
 				if fn, ok := goja.AssertFunction(transformResponse); ok {
 					config.TransformResponse = fn
 				}
+			}
+			// 解析响应类型（stream 用于大文件下载）
+			if responseType := configObj.Get("responseType"); responseType != nil && responseType != goja.Undefined() {
+				config.ResponseType = responseType.String()
+			}
+			// 解析文件路径（用于上传文件）
+			if filePath := configObj.Get("filePath"); filePath != nil && filePath != goja.Undefined() {
+				config.FilePath = filePath.String()
 			}
 		}
 	}
@@ -334,7 +466,47 @@ func (h *HTTPModule) makeRequest(config *HTTPConfig) (*HTTPResponse, error) {
 
 	// 准备请求体
 	var body io.Reader
-	if config.Data != nil {
+	if config.FilePath != "" {
+		// 文件上传模式
+		file, err := os.Open(config.FilePath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to open file: %w", err)
+		}
+		body = file
+		if config.Headers["Content-Type"] == "" {
+			// 根据文件扩展名推断 Content-Type
+			contentType := "application/octet-stream"
+			switch {
+			case strings.HasSuffix(config.FilePath, ".json"):
+				contentType = "application/json"
+			case strings.HasSuffix(config.FilePath, ".xml"):
+				contentType = "application/xml"
+			case strings.HasSuffix(config.FilePath, ".txt"):
+				contentType = "text/plain"
+			case strings.HasSuffix(config.FilePath, ".html") || strings.HasSuffix(config.FilePath, ".htm"):
+				contentType = "text/html"
+			case strings.HasSuffix(config.FilePath, ".css"):
+				contentType = "text/css"
+			case strings.HasSuffix(config.FilePath, ".js"):
+				contentType = "application/javascript"
+			case strings.HasSuffix(config.FilePath, ".pdf"):
+				contentType = "application/pdf"
+			case strings.HasSuffix(config.FilePath, ".zip"):
+				contentType = "application/zip"
+			case strings.HasSuffix(config.FilePath, ".png"):
+				contentType = "image/png"
+			case strings.HasSuffix(config.FilePath, ".jpg") || strings.HasSuffix(config.FilePath, ".jpeg"):
+				contentType = "image/jpeg"
+			case strings.HasSuffix(config.FilePath, ".gif"):
+				contentType = "image/gif"
+			case strings.HasSuffix(config.FilePath, ".ts"):
+				contentType = "video/mp2t"
+			case strings.HasSuffix(config.FilePath, ".m4s"):
+				contentType = "video/mp4"
+			}
+			config.Headers["Content-Type"] = contentType
+		}
+	} else if config.Data != nil {
 		switch data := config.Data.(type) {
 		case string:
 			body = strings.NewReader(data)
@@ -359,9 +531,20 @@ func (h *HTTPModule) makeRequest(config *HTTPConfig) (*HTTPResponse, error) {
 		}
 	}
 
-	// 创建请求
-	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(config.Timeout)*time.Second)
-	defer cancel()
+	// 流式响应模式自动禁用超时
+	if config.ResponseType == "stream" {
+		config.Timeout = 0
+	}
+
+	// 创建请求（timeout <= 0 表示不超时）
+	var ctx context.Context
+	var cancel context.CancelFunc
+	if config.Timeout > 0 {
+		ctx, cancel = context.WithTimeout(context.Background(), time.Duration(config.Timeout)*time.Second)
+		defer cancel()
+	} else {
+		ctx = context.Background()
+	}
 
 	req, err := http.NewRequestWithContext(ctx, config.Method, reqURL, body)
 	if err != nil {
@@ -388,20 +571,12 @@ func (h *HTTPModule) makeRequest(config *HTTPConfig) (*HTTPResponse, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
-
-	// 读取响应体
-	respBody, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
 
 	// 构建响应对象
 	response := &HTTPResponse{
 		Status:     resp.StatusCode,
 		StatusText: resp.Status,
 		Headers:    make(map[string]string),
-		Text:       string(respBody),
 		URL:        reqURL,
 		Config:     make(map[string]interface{}),
 	}
@@ -412,6 +587,46 @@ func (h *HTTPModule) makeRequest(config *HTTPConfig) (*HTTPResponse, error) {
 			response.Headers[key] = values[0]
 		}
 	}
+
+	// 流式响应模式
+	if config.ResponseType == "stream" {
+		// 创建 StreamResponse，保留 Body 不关闭（由用户调用 close）
+		streamResponse := &StreamResponse{
+			vm:         h.vm,
+			Body:       resp.Body,
+			Headers:    response.Headers,
+			URL:        reqURL,
+			Status:     resp.StatusCode,
+			StatusText: resp.Status,
+		}
+
+		// 将 StreamResponse 暴露给 JS
+		streamObj := h.vm.NewObject()
+		streamObj.Set("read", streamResponse.Read)
+		streamObj.Set("close", streamResponse.Close)
+		streamObj.Set("pipeToFile", streamResponse.PipeToFile)
+		streamObj.Set("copy", streamResponse.Copy)
+		streamObj.Set("headers", h.vm.ToValue(response.Headers))
+		streamObj.Set("status", response.Status)
+		streamObj.Set("statusText", response.StatusText)
+		streamObj.Set("url", response.URL)
+
+		// 在 Stream 中存储引用以便调用方法
+		response.Stream = streamResponse
+		response.Data = streamObj
+		return response, nil
+	}
+
+	// 非流式响应：关闭 Body 并读取内容
+	defer resp.Body.Close()
+
+	// 读取响应体
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	response.Text = string(respBody)
 
 	// 尝试解析 JSON
 	var jsonData interface{}

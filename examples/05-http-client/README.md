@@ -7,6 +7,7 @@
 - **http-demo.ts** - HTTP 客户端完整演示
 - **http-advanced-demo.js** - HTTP 高级功能演示（请求配置、参数修改）
 - **http-interceptors-demo.js** - HTTP 拦截器演示（请求/响应拦截）
+- **http-stream-demo.js** - HTTP 流式处理演示（流式下载、文件上传）
 
 ## 功能特点
 
@@ -46,6 +47,13 @@
 - 响应头访问
 - Promise 支持
 
+### 流式处理
+- 流式响应下载（适合大文件）
+- 文件上传（自动检测 Content-Type）
+- `pipeToFile` 直接写入文件
+- `read` 分块读取数据
+- `copy` 自定义处理数据流
+
 ## 运行示例
 
 ```bash
@@ -57,6 +65,9 @@ sw_runtime run examples/05-http-client/http-advanced-demo.js
 
 # 拦截器示例
 sw_runtime run examples/05-http-client/http-interceptors-demo.js
+
+# 流式处理示例
+sw_runtime run examples/05-http-client/http-stream-demo.js
 ```
 
 ## 示例代码
@@ -116,4 +127,56 @@ http.post('https://api.example.com/users', {
     return response;
   }
 });
+```
+
+## 流式处理示例
+
+```javascript
+const http = require('http/client');
+
+// 流式下载大文件
+http.get('https://example.com/large-file.zip', {
+  responseType: 'stream'
+}).then(response => {
+  // 方式1: 直接写入文件
+  response.data.pipeToFile('./output.zip');
+  response.data.close();
+
+  // 方式2: 分块读取
+  while (true) {
+    const chunk = response.data.read(8192);
+    if (!chunk) break;
+    // 处理每个数据块
+  }
+  response.data.close();
+
+  // 方式3: 使用 copy 方法自定义处理
+  const writer = {
+    totalWritten: 0,
+    write(chunk) {
+      this.totalWritten += chunk.length;
+      return chunk.length;
+    }
+  };
+  const written = response.data.copy(writer);
+});
+
+// 文件上传（自动检测 Content-Type）
+http.post('https://example.com/upload', {
+  filePath: './document.pdf'
+  // 自动设置 Content-Type: application/pdf
+  // .ts -> video/mp2t, .json -> application/json, 等
+});
+
+// 自定义 writer 进行数据转换
+const response = await http.get('https://example.com/stream', { responseType: 'stream' });
+const writer = {
+  write(chunk) {
+    // 转换为大写并保存
+    fs.writeFileSync('output.txt', chunk.toUpperCase(), { flag: 'a' });
+    return chunk.length;
+  }
+};
+response.data.copy(writer);
+response.data.close();
 ```

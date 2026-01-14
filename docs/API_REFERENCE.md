@@ -305,9 +305,31 @@ import('./module.js').then(mod => console.log(mod));
     username?: string,
     password?: string,
     token?: string         // Bearer token
-  }
+  },
+  responseType?: string,   // 响应类型: "json" | "text" | "stream"，默认 "json"
+  filePath?: string        // 上传文件路径（自动设置 Content-Type）
 }
 ```
+
+### 文件上传 Content-Type 自动检测
+当使用 `filePath` 上传文件时，会自动根据文件扩展名设置 Content-Type：
+
+| 扩展名 | Content-Type |
+|--------|--------------|
+| `.json` | application/json |
+| `.xml` | application/xml |
+| `.txt` | text/plain |
+| `.html` / `.htm` | text/html |
+| `.css` | text/css |
+| `.js` | application/javascript |
+| `.pdf` | application/pdf |
+| `.zip` | application/zip |
+| `.png` | image/png |
+| `.jpg` / `.jpeg` | image/jpeg |
+| `.gif` | image/gif |
+| `.ts` | video/mp2t |
+| `.m4s` | video/mp4 |
+| 其他 | application/octet-stream |
 
 ### HTTPResponse 对象
 ```typescript
@@ -315,10 +337,68 @@ import('./module.js').then(mod => console.log(mod));
   status: number,          // HTTP 状态码
   statusText: string,      // 状态文本
   headers: object,         // 响应头
-  data: any,              // 响应数据（自动 JSON 解析）
-  text: string,           // 原始响应文本
+  data: any,              // 响应数据（自动 JSON 解析）或 Stream 对象
+  text: string,           // 原始响应文本（非流式响应）
   url: string             // 请求 URL
 }
+```
+
+### 流式响应 (Stream 对象)
+
+当 `responseType: "stream"` 时，`response.data` 为 Stream 对象：
+
+```typescript
+{
+  // 方法
+  read(size?: number): string,     // 读取数据块，默认 4KB
+  close(): void,                   // 关闭流
+  pipeToFile(path: string): void,  // 直接写入文件
+  copy(destination: Writer): number, // 复制到自定义 writer
+
+  // 属性
+  headers: object,    // 响应头
+  status: number,     // 状态码
+  statusText: string, // 状态文本
+  url: string         // 请求 URL
+}
+```
+
+**Stream 使用示例**:
+```javascript
+const http = require('http/client');
+
+// 流式下载大文件
+const response = await http.get('https://example.com/large-file.zip', {
+  responseType: 'stream'
+});
+
+// 方式1: 直接写入文件
+response.data.pipeToFile('./output.zip');
+response.data.close();
+
+// 方式2: 分块读取
+while (true) {
+  const chunk = response.data.read(8192);
+  if (!chunk) break;
+  // 处理数据块
+}
+response.data.close();
+
+// 方式3: 使用 copy 方法
+const writer = {
+  totalWritten: 0,
+  write(chunk) {
+    this.totalWritten += chunk.length;
+    return chunk.length;
+  }
+};
+const written = response.data.copy(writer);
+response.data.close();
+
+// 文件上传
+await http.post('https://example.com/upload', {
+  filePath: './video.ts'  // 自动设置 Content-Type: video/mp2t
+});
 ```
 
 ### createClient(config?: {timeout?: number}): HTTPClient

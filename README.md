@@ -115,6 +115,8 @@ const zlibDecompressed = compression.zlibDecompress(zlibCompressed);
 - **请求配置**: 请求头、参数、超时、认证
 - **响应处理**: 自动 JSON 解析、状态码、响应头
 - **Promise 支持**: 所有请求返回 Promise
+- **流式处理**: 支持大文件流式下载和文件上传
+- **自动 Content-Type**: 文件上传时自动检测文件类型
 
 ```javascript
 const { client } = require('http');
@@ -137,6 +139,28 @@ client.post('https://api.example.com/users', {
 const httpClient = client.createClient({ timeout: 10 });
 httpClient.get('https://api.example.com/data')
   .then(response => console.log(response.data));
+
+// 流式下载大文件
+client.get('https://example.com/large-file.zip', {
+  responseType: 'stream'
+}).then(response => {
+  // 直接写入文件
+  response.data.pipeToFile('./output.zip');
+  response.data.close();
+
+  // 或分块读取处理
+  while (true) {
+    const chunk = response.data.read(8192);
+    if (!chunk) break;
+    // 处理数据块
+  }
+  response.data.close();
+});
+
+// 文件上传（自动检测 Content-Type）
+client.post('https://example.com/upload', {
+  filePath: './video.ts'  // 自动设置 Content-Type: video/mp2t
+});
 ```
 
 ### 🚀 HTTP/HTTPS 服务器模块 (`http/server`)

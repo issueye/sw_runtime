@@ -102,6 +102,8 @@ func (t *TimeModule) GetModule() *goja.Object {
 	// 延迟执行
 	obj.Set("sleep", t.sleep)
 	obj.Set("sleepMillis", t.sleepMillis)
+	obj.Set("sleepSync", t.sleepSync)
+	obj.Set("sleepMillisSync", t.sleepMillisSync)
 
 	// 时间计算 (支持负数)
 	obj.Set("add", t.add)
@@ -429,6 +431,30 @@ func (t *TimeModule) sleepMillis(call goja.FunctionCall) goja.Value {
 	}()
 
 	return t.vm.ToValue(promise)
+}
+
+// sleepSync 同步延迟执行（秒）- 阻塞当前协程
+func (t *TimeModule) sleepSync(call goja.FunctionCall) goja.Value {
+	if len(call.Arguments) < 1 {
+		panic(t.vm.NewTypeError("sleepSync requires seconds argument"))
+	}
+
+	seconds := call.Arguments[0].ToFloat()
+	time.Sleep(time.Duration(seconds * float64(time.Second)))
+
+	return goja.Undefined()
+}
+
+// sleepMillisSync 同步延迟执行（毫秒）- 阻塞当前协程
+func (t *TimeModule) sleepMillisSync(call goja.FunctionCall) goja.Value {
+	if len(call.Arguments) < 1 {
+		panic(t.vm.NewTypeError("sleepMillisSync requires milliseconds argument"))
+	}
+
+	millis := call.Arguments[0].ToInteger()
+	time.Sleep(time.Duration(millis) * time.Millisecond)
+
+	return goja.Undefined()
 }
 
 // add 添加时间间隔
