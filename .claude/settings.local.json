@@ -22,7 +22,9 @@
       "Bash(go clean:*)",
       "Bash(ls:*)",
       "Bash(./build/bin/sw_runtime.exe:*)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(npx esbuild:*)",
+      "Bash(go doc:*)"
     ]
   }
 }

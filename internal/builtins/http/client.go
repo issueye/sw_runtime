@@ -138,26 +138,29 @@ type StreamResponse struct {
 
 // Read 读取流式数据
 func (s *StreamResponse) Read(call goja.FunctionCall) goja.Value {
+	var n int
+	var err error
+
 	if len(call.Arguments) > 0 {
 		size := call.Arguments[0].ToInteger()
 		buf := make([]byte, size)
-		n, err := s.Body.Read(buf)
+		n, err = s.Body.Read(buf)
 		if err != nil && err != io.EOF {
 			panic(s.vm.NewGoError(err))
 		}
 		if n == 0 {
-			return goja.Undefined()
+			return s.vm.ToValue("")
 		}
 		return s.vm.ToValue(string(buf[:n]))
 	}
 	// 默认读取一块数据
 	buf := make([]byte, 4096)
-	n, err := s.Body.Read(buf)
+	n, err = s.Body.Read(buf)
 	if err != nil && err != io.EOF {
 		panic(s.vm.NewGoError(err))
 	}
 	if n == 0 {
-		return goja.Undefined()
+		return s.vm.ToValue("")
 	}
 	return s.vm.ToValue(string(buf[:n]))
 }
