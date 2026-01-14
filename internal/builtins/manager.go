@@ -68,15 +68,6 @@ func (m *Manager) registerBuiltinModules() {
 	processNS := process.NewNamespace(m.vm, m.argv, m.startTime)
 	m.namespaces["process"] = processNS
 	m.modules["process"] = processNS
-
-	// 保持向后兼容：单独注册子模块
-	if mod, ok := processNS.GetSubModule("process"); ok {
-		m.modules["process/process"] = mod
-	}
-	if mod, ok := processNS.GetSubModule("exec"); ok {
-		m.modules["exec"] = mod
-		m.modules["process/exec"] = mod
-	}
 }
 
 func (m *Manager) GetModule(name string) (types.BuiltinModule, bool) {

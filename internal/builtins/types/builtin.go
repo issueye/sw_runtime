@@ -7,5 +7,6 @@ type BuiltinModule interface {
 }
 
 type NamespaceModule interface {
+	GetModule() *goja.Object
 	GetSubModule(name string) (BuiltinModule, bool)
 }

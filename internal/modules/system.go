@@ -144,6 +144,17 @@ func (ms *System) LoadModule(id string, parentPath string) (*Module, error) {
 		}
 	}
 
+	// 检查是否是 bare 命名空间模块 (如 utils, http, db, net, fs, config, process)
+	if nsModule, exists := ms.builtinManager.GetNamespaceModule(id); exists {
+		module := &Module{
+			ID:       id,
+			Filename: id,
+			Exports:  nsModule.GetModule(),
+			Loaded:   true,
+		}
+		return module, nil
+	}
+
 	resolvedPath, err := ms.resolveModule(id, parentPath)
 	if err != nil {
 		return nil, err
